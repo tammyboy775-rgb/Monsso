@@ -1,0 +1,100 @@
+.section-wrap {
+  width: min(1200px, calc(100% - 64px));
+  margin-inline: auto;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #20172b;
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -1.1px;
+  text-decoration: none;
+}
+
+.brand-mark,
+.mini-mark {
+  width: 25px;
+  height: 25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transform: skewY(-21deg);
+}
+
+.brand-mark i,
+.mini-mark i {
+  width: 5px;
+  border-radius: 4px;
+  background: #7951db;
+  display: block;
+}
+
+.brand-mark i:nth-child(1),
+.mini-mark i:nth-child(1) { height: 11px; }
+.brand-mark i:nth-child(2),
+.mini-mark i:nth-child(2) { height: 18px; }
+.brand-mark i:nth-child(3),
+.mini-mark i:nth-child(3) { height: 14px; }
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 19px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.button:hover { transform: translateY(-2px); }
+.button svg,
+.text-link svg,
+.feature-card > a svg,
+.transaction-title a svg {
+  width: 17px;
+  height: 17px;
+}
+.button-small { padding: 11px 14px; font-size: 12px; }
+.button-dark { color: white; background: #211a2c; }
+.button-dark:hover { background: #372b48; box-shadow: 0 7px 18px #2418331c; }
+.button-primary { color: #fff; background: #7852d8; box-shadow: 0 8px 18px #7752d82b; }
+.button-primary:hover { background: #6740c8; box-shadow: 0 10px 24px #7752d840; }
+.button-light { padding: 12px 16px; color: #30243f; background: #fff; }
+.button-light:hover { background: #f3effa; box-shadow: 0 8px 22px #09061040; }
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #7652d2;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.4px;
+}
+.eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: #9c7ce7; }
+
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #342b40;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.text-link svg { color: #7954d9; transition: transform .2s ease; }
+.text-link:hover svg { transform: translateX(4px); }
+
+@media (max-width: 720px) {
+  .section-wrap { width: min(100% - 40px, 560px); }
+}
+
+@media (max-width: 390px) {
+  .section-wrap { width: calc(100% - 32px); }
+}

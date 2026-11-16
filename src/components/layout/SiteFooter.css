@@ -1,0 +1,23 @@
+.site-footer {
+  min-height: 91px;
+  border-top: 1px solid #eeebf2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.site-footer .brand { font-size: 18px; }
+.site-footer .brand-mark { transform: skewY(-21deg) scale(.85); }
+.site-footer p,
+.footer-note { color: #96909e; font-size: 10px; }
+
+@media (max-width: 720px) {
+  .site-footer {
+    min-height: 110px;
+    flex-wrap: wrap;
+    gap: 0 18px;
+    padding-top: 17px;
+    padding-bottom: 17px;
+  }
+  .site-footer p { order: 3; width: 100%; margin-top: -6px; }
+  .footer-note { font-size: 8px; }
+}
