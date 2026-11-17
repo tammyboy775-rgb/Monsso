@@ -18,7 +18,7 @@ function HeroSection() {
           Monsso brings billing, payments, reconciliation, and payouts together—so you can spend less time chasing money and more time building what&apos;s next.
         </p>
         <div className="hero-actions">
-          <a className="button button-primary" href="#contact">Build with Monsso <ArrowUpRight /></a>
+          <a className="button button-primary" href="/checkout">Try a test payment <ArrowUpRight /></a>
           <a className="text-link" href="#platform">Explore the platform <ArrowRight /></a>
         </div>
         <div className="hero-proof">
