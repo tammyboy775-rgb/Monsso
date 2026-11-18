@@ -8,6 +8,26 @@ import {
   verifyInteractionHash,
 } from './payments.js'
 
+function createAsyncPaymentStore() {
+  const payments = new Map()
+  const finishLocks = new Set()
+
+  return {
+    async get(state) {
+      const payment = payments.get(state)
+      return payment ? structuredClone(payment) : undefined
+    },
+    async set(state, payment) {
+      payments.set(state, structuredClone(payment))
+    },
+    async claimFinish(state) {
+      if (finishLocks.has(state)) return false
+      finishLocks.add(state)
+      return true
+    },
+  }
+}
+
 test('converts decimal amounts to integer minor units without floating point', () => {
   assert.equal(amountToMinorUnits('12.34', 2), '1234')
   assert.equal(amountToMinorUnits('12', 2), '1200')
@@ -124,7 +144,7 @@ test('creates a scoped test checkout and submits one outgoing payment after auth
       },
     },
   }
-  const payments = new Map()
+  const payments = createAsyncPaymentStore()
   const service = createOpenPaymentsService({
     client,
     merchantWalletAddress: 'https://ilp.interledger-test.dev/merchant',
@@ -143,7 +163,7 @@ test('creates a scoped test checkout and submits one outgoing payment after auth
   assert.equal('continueAccessToken' in checkout, false)
   assert.equal(calls.grants[2].access_token.access[0].limits.receiver, incomingPayment.id)
 
-  const payment = payments.get(checkout.state)
+  const payment = await payments.get(checkout.state)
   const interactRef = 'approved-reference'
   const hash = createHash('sha256')
     .update(
@@ -152,11 +172,27 @@ test('creates a scoped test checkout and submits one outgoing payment after auth
     )
     .digest('base64url')
 
-  const finished = await service.finishCheckout({
+  const callbackService = createOpenPaymentsService({
+    client,
+    merchantWalletAddress: 'https://ilp.interledger-test.dev/merchant',
+    appOrigin: 'http://localhost:5173',
+    payments,
+  })
+  const callback = {
     state: checkout.state,
     hash,
     interactRef,
-  })
+  }
+  const attempts = await Promise.allSettled([
+    callbackService.finishCheckout(callback),
+    service.finishCheckout(callback),
+  ])
+  const finishedAttempt = attempts.find((attempt) => attempt.status === 'fulfilled')
+  const rejectedAttempt = attempts.find((attempt) => attempt.status === 'rejected')
+  assert.ok(finishedAttempt)
+  assert.ok(rejectedAttempt)
+  assert.equal(rejectedAttempt.reason.statusCode, 409)
+  const finished = finishedAttempt.value
   const repeated = await service.finishCheckout({
     state: checkout.state,
     hash,

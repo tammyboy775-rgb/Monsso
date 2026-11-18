@@ -9,7 +9,6 @@ import {
 const requiredEnvironment = [
   'OP_CLIENT_WALLET_ADDRESS',
   'OP_MERCHANT_WALLET_ADDRESS',
-  'OP_PRIVATE_KEY_PATH',
   'OP_KEY_ID',
 ]
 const appOrigin = process.env.MONSSO_APP_ORIGIN ?? 'http://localhost:5173'
@@ -18,7 +17,11 @@ const payments = new Map()
 let clientPromise
 
 function missingConfiguration() {
-  return requiredEnvironment.filter((name) => !process.env[name])
+  const missing = requiredEnvironment.filter((name) => !process.env[name])
+  if (!process.env.OP_PRIVATE_KEY && !process.env.OP_PRIVATE_KEY_PATH) {
+    missing.push('OP_PRIVATE_KEY or OP_PRIVATE_KEY_PATH')
+  }
+  return missing
 }
 
 async function getService() {
@@ -37,7 +40,7 @@ async function getService() {
   if (!clientPromise) {
     clientPromise = createAuthenticatedClient({
       walletAddressUrl: process.env.OP_CLIENT_WALLET_ADDRESS,
-      privateKey: process.env.OP_PRIVATE_KEY_PATH,
+      privateKey: process.env.OP_PRIVATE_KEY || process.env.OP_PRIVATE_KEY_PATH,
       keyId: process.env.OP_KEY_ID,
     }).catch((error) => {
       clientPromise = undefined

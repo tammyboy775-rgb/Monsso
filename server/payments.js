@@ -121,10 +121,22 @@ function assertWalletDetails(walletAddress) {
   }
 }
 
-function cleanExpiredPayments(payments, now) {
-  for (const [state, payment] of payments) {
-    if (payment.expiresAt <= now) payments.delete(state)
+async function cleanExpiredPayments(payments, now) {
+  if (typeof payments.cleanExpired === 'function') {
+    await payments.cleanExpired(now)
+    return
   }
+
+  if (payments instanceof Map) {
+    for (const [state, payment] of payments) {
+      if (payment.expiresAt <= now) payments.delete(state)
+    }
+  }
+}
+
+async function savePayment(payments, payment, now) {
+  const ttlSeconds = Math.max(1, Math.ceil((payment.expiresAt - now()) / 1000))
+  await payments.set(payment.state, payment, { ex: ttlSeconds })
 }
 
 export function createOpenPaymentsService({
@@ -135,9 +147,9 @@ export function createOpenPaymentsService({
   now = Date.now,
 }) {
   async function startCheckout({ amount, payerWalletAddress }) {
-    cleanExpiredPayments(payments, now())
+    await cleanExpiredPayments(payments, now())
 
-    if (payments.size >= MAX_ACTIVE_PAYMENTS) {
+    if (Number.isFinite(payments.size) && payments.size >= MAX_ACTIVE_PAYMENTS) {
       throw new PaymentError('Too many active test checkouts. Try again shortly.', 503)
     }
 
@@ -245,7 +257,7 @@ export function createOpenPaymentsService({
     assertTestnetAuthorizationUrl(outgoingGrant.interact.redirect)
     assertTestnetServiceUrl(outgoingGrant.continue.uri)
 
-    payments.set(state, {
+    const payment = {
       state,
       expiresAt: now() + PAYMENT_TTL_MS,
       status: 'awaiting_authorization',
@@ -263,7 +275,8 @@ export function createOpenPaymentsService({
       continueUri: outgoingGrant.continue.uri,
       continueAccessToken: outgoingGrant.continue.access_token.value,
       finishAttempted: false,
-    })
+    }
+    await savePayment(payments, payment, now)
 
     return {
       state,
@@ -275,8 +288,8 @@ export function createOpenPaymentsService({
   }
 
   async function finishCheckout({ state, hash, interactRef }) {
-    cleanExpiredPayments(payments, now())
-    const payment = payments.get(state)
+    await cleanExpiredPayments(payments, now())
+    const payment = await payments.get(state)
     if (!payment) throw new PaymentError('This test checkout has expired. Start a new one.', 410)
     if (payment.quoteExpiresAt && Date.parse(payment.quoteExpiresAt) <= now()) {
       throw new PaymentError('The quote has expired. Start a new checkout to get a fresh quote.', 410)
@@ -295,12 +308,19 @@ export function createOpenPaymentsService({
     }
 
     if (payment.outgoingPaymentId) return checkoutStatus(payment)
-    if (payment.finishAttempted) {
+
+    if (typeof payments.claimFinish === 'function') {
+      const ttlSeconds = Math.max(1, Math.ceil((payment.expiresAt - now()) / 1000))
+      if (!await payments.claimFinish(state, ttlSeconds)) {
+        throw new PaymentError('This authorization is already being processed.', 409)
+      }
+    } else if (payment.finishAttempted) {
       throw new PaymentError('This authorization is already being processed.', 409)
     }
 
     payment.finishAttempted = true
     payment.status = 'processing'
+    await savePayment(payments, payment, now)
 
     const outgoingGrant = await client.grant.continue(
       {
@@ -328,6 +348,7 @@ export function createOpenPaymentsService({
 
     payment.outgoingPaymentId = outgoingPayment.id
     payment.status = outgoingPayment.failed ? 'failed' : 'submitted'
+    await savePayment(payments, payment, now)
 
     return checkoutStatus(payment)
   }
@@ -338,7 +359,10 @@ export function createOpenPaymentsService({
       accessToken: payment.incomingAccessToken,
     })
 
-    if (incomingPayment.completed) payment.status = 'completed'
+    if (incomingPayment.completed) {
+      payment.status = 'completed'
+      await savePayment(payments, payment, now)
+    }
 
     return {
       state: payment.state,
@@ -352,8 +376,8 @@ export function createOpenPaymentsService({
   }
 
   async function getCheckoutStatus(state) {
-    cleanExpiredPayments(payments, now())
-    const payment = payments.get(state)
+    await cleanExpiredPayments(payments, now())
+    const payment = await payments.get(state)
     if (!payment) throw new PaymentError('This test checkout has expired. Start a new one.', 410)
     return checkoutStatus(payment)
   }
