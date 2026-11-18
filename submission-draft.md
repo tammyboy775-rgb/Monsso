@@ -28,7 +28,7 @@ Prepared for the [submission form](https://docs.google.com/forms/d/e/1FAIpQLSeNx
 ## Code repository
 
 - **Repository:** https://github.com/tammyboy775-rgb/Monsso
-- **Submitted commit:** Update this to the final commit hash after committing the favicon change. Current `HEAD` before that change is `091c30c79798fd18fde3c52c57115833d0d960bf`.
+- **Submitted commit:** `0ce0b3f5137a7ed910f30c80348aa8500b294471` (`main`, pushed to `origin/main`).
 - **Runtime dependencies:** `react` 19.3.1 (MIT), `react-dom` 19.3.1 (MIT), `@interledger/open-payments` 7.4.0 (Apache-2.0), and `@upstash/redis` 1.41.0 (MIT).
 - **Development dependencies:** `vite` 8.3.8, `@vitejs/plugin-react` 6.3.0, `@rolldown/plugin-babel` 0.3.1, `@babel/core` 7.29.13, `babel-plugin-react-compiler` 1.0.0, `oxlint` 1.93.0, `@types/react` 19.3.0, and `@types/react-dom` 19.3.0. These packages declare MIT licenses.
 - **Project license:** No root `LICENSE` file or `license` field is currently present. The project does not declare a reuse license; confirm whether the event requires one before submitting.
@@ -37,6 +37,8 @@ Prepared for the [submission form](https://docs.google.com/forms/d/e/1FAIpQLSeNx
 ## Demo video (maximum 3 minutes)
 
 **Status:** Not recorded yet. Record only after one complete testnet checkout succeeds.
+
+**Pitch deck:** [Editable PowerPoint](./submission-pitch-deck.pptx) | [PDF](./submission-pitch-deck.pdf)
 
 Suggested outline:
 
