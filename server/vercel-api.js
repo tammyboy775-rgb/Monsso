@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { Redis } from '@upstash/redis'
 import { createAuthenticatedClient } from '@interledger/open-payments'
+import { handleAuthApi } from './auth.js'
 import {
   createOpenPaymentsService,
   isTestnetWalletAddress,
@@ -188,6 +189,11 @@ export async function handleVercelApi(request, response, route) {
   if (request.method === 'GET' && route === '/api/health') {
     const missing = missingConfiguration()
     sendJson(response, 200, { configured: missing.length === 0, missing })
+    return
+  }
+
+  if (route.startsWith('/api/auth/')) {
+    await handleAuthApi(request, response, route)
     return
   }
 

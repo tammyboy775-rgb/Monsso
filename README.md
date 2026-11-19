@@ -17,6 +17,23 @@ listens only on `127.0.0.1` and only accepts wallet addresses on
 `interledger-test.dev`. Local checkout state is held in memory and is lost
 when the API server restarts.
 
+## Configure Google sign-in
+
+1. Create a Google OAuth client ID for a **Web application** in Google Cloud.
+   Add `http://localhost:5173` as an authorized JavaScript origin for local
+   development and your deployed site origin for production.
+2. Set `VITE_GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_ID` to that client ID in
+   `.env`. The `VITE_` value is public and is used by the browser; the server
+   checks Google credentials against `GOOGLE_CLIENT_ID`.
+3. Set `AUTH_SESSION_SECRET` to a private random value of at least 32
+   characters. For example, generate one with
+   `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`.
+
+Google verifies each sign-in on the server. Monsso stores only a signed,
+HTTP-only session cookie and the user's verified email and profile picture.
+The profile is available at `/profile`; choose **Switch account** to sign in
+with another Google account.
+
 ## Configure the Interledger test wallet
 
 1. Create test-wallet accounts for the client identity and merchant. Create a
@@ -53,6 +70,9 @@ The API is still testnet-only and is not suitable for real payments.
      path).
    - `OP_KEY_ID` to the client's test-wallet key ID.
    - `MONSSO_APP_ORIGIN` to `https://monsso.vercel.app` with no trailing slash.
+   - `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` to the Google Web OAuth
+     client ID whose authorized JavaScript origin is `https://monsso.vercel.app`.
+   - `AUTH_SESSION_SECRET` to a private random value of at least 32 characters.
 3. Keep the client's public key available at its wallet address's `jwks.json`
    endpoint. Never paste the private key into source control, chat, or issue
    trackers.

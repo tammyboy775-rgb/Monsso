@@ -28,12 +28,30 @@
 .main-nav a:hover,
 .login-link:hover { color: #7550d4; }
 .header-actions { gap: 26px; }
+.header-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #686274;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.header-profile:hover { color: #7550d4; }
+.header-profile img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
 
 @media (max-width: 720px) {
   .site-header { width: min(100% - 40px, 560px); height: 70px; }
   .main-nav { display: none; }
   .header-actions { gap: 13px; }
   .login-link { font-size: 11px; }
+  .header-profile { font-size: 11px; }
+  .header-profile img { width: 24px; height: 24px; }
   .button-small { padding: 10px 11px; font-size: 10px; }
   .button-small svg { width: 14px; height: 14px; }
 }

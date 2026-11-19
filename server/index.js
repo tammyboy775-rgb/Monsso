@@ -1,5 +1,6 @@
 import { createServer } from 'node:http'
 import { createAuthenticatedClient } from '@interledger/open-payments'
+import { handleAuthApi } from './auth.js'
 import {
   createOpenPaymentsService,
   isTestnetWalletAddress,
@@ -94,6 +95,11 @@ async function handleRequest(request, response) {
   if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
     const missing = missingConfiguration()
     sendJson(response, 200, { configured: missing.length === 0, missing })
+    return
+  }
+
+  if (requestUrl.pathname.startsWith('/api/auth/')) {
+    await handleAuthApi(request, response, requestUrl.pathname)
     return
   }
 
