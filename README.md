@@ -64,7 +64,8 @@ real payments.
 
 ## Deploy the test checkout API to Vercel
 
-The API uses Vercel Functions and Upstash Redis for short-lived checkout state.
+The API is served through one catch-all Vercel Function to fit the Hobby plan's
+function limit, and uses Upstash Redis for short-lived checkout state.
 The API is still testnet-only and is not suitable for real payments.
 
 1. Add an Upstash Redis database to the Vercel project using the Vercel
