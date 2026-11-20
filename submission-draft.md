@@ -15,20 +15,20 @@ Prepared for the [submission form](https://docs.google.com/forms/d/e/1FAIpQLSeNx
 - **Project name:** Monsso
 - **Primary track:** Payment Automation and Financial Workflows
 - **Intended users:** Small and local merchants exploring wallet-based digital payments, and customers who want to pay through a supported wallet.
-- **Problem statement:** Small merchants can face friction when accepting and tracking digital payments across separate payment tools. Monsso explores a connected merchant experience, beginning with an Open Payments wallet checkout and payment-status flow.
+- **Problem statement:** Independent SMEs may lack a straightforward way to accept wallet-based digital payments and confirm that a payment reached their receiving wallet. Monsso focuses on this narrow checkout and receipt-status problem; the prototype does not implement a complete merchant payments platform.
 - **Current prototype scope:** The hosted site includes a testnet checkout. The broader billing, reconciliation, and payout concepts shown on the landing page are not implemented as live product features.
 
 ## Inclusion case
 
-- **Barrier addressed:** Merchant payment flows can require customers to use payment methods or providers they do not prefer or cannot access. This prototype explores a wallet-based alternative where the customer reviews and authorizes payment with their wallet provider.
-- **Expected benefit:** If validated, wallet choice and a clear authorization flow may make digital payments more accessible to some merchants and customers. This is a hypothesis, not a measured outcome.
-- **Evidence:** No user research or impact evidence has been collected yet. The prototype demonstrates a testnet Open Payments flow: creating a checkout quote, redirecting for payer authorization, and checking whether the merchant's wallet received the payment. Automated tests cover parts of the payment service; they do not establish user impact.
+- **Barrier addressed:** Small businesses can face setup and workflow friction when trying to accept digital payments and verify receipt. Customers may also have different wallet-provider access or preferences. The prototype explores a wallet-based option with explicit payer authorization and a merchant receipt-status check.
+- **Expected benefit:** If validated with SMEs and their customers, a wallet-based checkout with clear payment status could offer another way to pay and reduce uncertainty about receipt. This is a hypothesis, not a measured outcome.
+- **Evidence:** No user research or impact evidence has been collected yet. The code implements testnet quote creation, payer authorization, outgoing-payment submission, and merchant receipt polling; automated service tests use a mocked Open Payments client and do not prove a live transaction. A successful end-to-end test-wallet checkout and recording are still required.
 - **Assumptions and limitations:** Users need internet access and compatible Interledger test-wallet accounts. Only the test network and test funds are supported. The prototype has not been validated with merchants or customers, and must not be used for real payments.
 
 ## Code repository
 
 - **Repository:** https://github.com/tammyboy775-rgb/Monsso
-- **Submitted commit:** `0ce0b3f5137a7ed910f30c80348aa8500b294471` (`main`, pushed to `origin/main`).
+- **Submitted commit:** `5447b9c888943074e78c6e6bbd1509d801f2b2c3` (`main`, pushed to `origin/main`).
 - **Runtime dependencies:** `react` 19.3.1 (MIT), `react-dom` 19.3.1 (MIT), `@interledger/open-payments` 7.4.0 (Apache-2.0), and `@upstash/redis` 1.41.0 (MIT).
 - **Development dependencies:** `vite` 8.3.8, `@vitejs/plugin-react` 6.3.0, `@rolldown/plugin-babel` 0.3.1, `@babel/core` 7.29.13, `babel-plugin-react-compiler` 1.0.0, `oxlint` 1.93.0, `@types/react` 19.3.0, and `@types/react-dom` 19.3.0. These packages declare MIT licenses.
 - **Project license:** No root `LICENSE` file or `license` field is currently present. The project does not declare a reuse license; confirm whether the event requires one before submitting.
@@ -55,9 +55,9 @@ Do not show private keys, access tokens, or other credentials in the recording.
 - **Hosted site:** https://monsso.vercel.app/
 - **Hosted checkout:** https://monsso.vercel.app/checkout
 - **Hosted API health:** https://monsso.vercel.app/api/health
-- **Access status:** The site is hosted and the API reports that its required environment variables are configured. Complete and verify an end-to-end test-wallet checkout before claiming that payment processing has been demonstrated.
+- **Access status:** The site is hosted and the API reports that its required environment variables are configured. The latest checkout attempt failed during an Open Payments wallet-address request. Correct the wallet setup, then complete and verify an end-to-end test-wallet checkout before claiming that payment processing has been demonstrated.
 - **Safe test instructions:** Use only supported `interledger-test.dev` test-wallet addresses and test funds. Start with a small amount. Never enter real wallet details or use real funds.
-- **Reproducible local setup:** From the repository root, run `npm ci`; configure a local `.env` using `.env.example` and a test-wallet private-key file; run `npm run dev:server` and `npm run dev` in separate terminals; then open `http://localhost:5173/checkout`. Keep `.env` and private keys out of source control.
+- **Reproducible local setup:** From the repository root, run `npm ci`; configure `.env` using the exact client and merchant test-wallet address URLs, client key ID and private-key file, plus a separate payer test-wallet account; run `npm run dev:server` and `npm run dev` in separate terminals; then open `http://localhost:5173/checkout`. See the README for account roles and setup details. Keep `.env` and private keys out of source control.
 
 ## Next steps
 

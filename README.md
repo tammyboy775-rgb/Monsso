@@ -36,18 +36,26 @@ with another Google account.
 
 ## Configure the Interledger test wallet
 
-1. Create test-wallet accounts for the client identity and merchant. Create a
-   payer account too when you're ready to test the full flow, using the
-   [Open Payments test-wallet guide](https://openpayments.dev/sdk/before-you-begin/).
-2. Create a client key and note its key ID. The public key must be published at
-   the configured client wallet address's `jwks.json` endpoint.
-3. Copy `.env.example` to `.env` and set:
-   - `OP_CLIENT_WALLET_ADDRESS` to the client's test wallet address.
-   - `OP_MERCHANT_WALLET_ADDRESS` to the merchant's receiving test wallet.
+1. Create three separate test-wallet accounts using the
+   [Open Payments test-wallet guide](https://openpayments.dev/sdk/before-you-begin/):
+   - **Client:** Monsso's server identity. Its key signs authenticated API
+     requests.
+   - **Merchant:** the receiving wallet configured for checkout.
+   - **Payer:** the wallet you control and authorize payment from in the
+     checkout flow.
+2. Copy the exact **Wallet Address URL** shown for each account. Do not use
+   example placeholders, manually build a URL, or substitute one account's
+   address for another.
+3. Create a client key and note its key ID. The matching public key must be
+   published at the client wallet address's `jwks.json` endpoint.
+4. Copy `.env.example` to `.env` and set:
+   - `OP_CLIENT_WALLET_ADDRESS` to the exact client account Wallet Address URL.
+   - `OP_MERCHANT_WALLET_ADDRESS` to the exact merchant account Wallet Address URL.
    - `OP_PRIVATE_KEY_PATH` to the downloaded private key file.
    - `OP_KEY_ID` to the key ID from the test wallet.
-4. Enter the payer's test wallet address at checkout. The payer is redirected
-   to their wallet provider to authorize the outgoing payment.
+5. Enter the payer account's exact Wallet Address URL at checkout. The payer
+   is redirected to their wallet provider to review and authorize the outgoing
+   payment.
 
 Keep `.env` and the private key out of source control. The app never sends
 private keys or access tokens to the browser. The payment flow uses test funds
@@ -64,10 +72,12 @@ The API is still testnet-only and is not suitable for real payments.
    `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
 2. In **Project Settings → Environment Variables**, set the following for the
    Production environment:
-   - `OP_CLIENT_WALLET_ADDRESS` to the client's test-wallet address.
-   - `OP_MERCHANT_WALLET_ADDRESS` to the merchant's test-wallet address.
-   - `OP_PRIVATE_KEY` to the private key's PEM contents (not its local file
-     path).
+   - `OP_CLIENT_WALLET_ADDRESS` to the exact client account Wallet Address URL.
+   - `OP_MERCHANT_WALLET_ADDRESS` to the exact merchant account Wallet Address URL.
+   - `OP_PRIVATE_KEY` to the complete, unencrypted PEM contents of the
+     downloaded client private-key file, preserving line breaks (not its local
+     file path). It must match `OP_KEY_ID` and the public key at the client's
+     `jwks.json` endpoint.
    - `OP_KEY_ID` to the client's test-wallet key ID.
    - `MONSSO_APP_ORIGIN` to `https://monsso.vercel.app` with no trailing slash.
    - `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` to the Google Web OAuth
