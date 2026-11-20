@@ -132,6 +132,15 @@ async function getWalletAddress(client, url, role) {
   }
 }
 
+async function withRequestContext(stage, request) {
+  try {
+    return await request()
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    throw new Error(`Open Payments ${stage} failed: ${detail}`, { cause: error })
+  }
+}
+
 async function cleanExpiredPayments(payments, now) {
   if (typeof payments.cleanExpired === 'function') {
     await payments.cleanExpired(now)
@@ -179,54 +188,66 @@ export function createOpenPaymentsService({
       assetScale: merchant.assetScale,
     }
 
-    const incomingGrant = await client.grant.request(
-      { url: merchant.authServer },
-      {
-        access_token: {
-          access: [{ type: 'incoming-payment', actions: ['create', 'read'] }],
+    const incomingGrant = await withRequestContext(
+      'merchant incoming-payment grant request',
+      () => client.grant.request(
+        { url: merchant.authServer },
+        {
+          access_token: {
+            access: [{ type: 'incoming-payment', actions: ['create', 'read'] }],
+          },
         },
-      },
+      ),
     )
 
     if (!isFinalizedGrantWithAccessToken(incomingGrant)) {
       throw new PaymentError('The merchant wallet did not approve its incoming-payment grant.', 502)
     }
 
-    const incomingPayment = await client.incomingPayment.create(
-      {
-        url: merchant.resourceServer,
-        accessToken: incomingGrant.access_token.value,
-      },
-      {
-        walletAddress: merchant.id,
-        incomingAmount,
-        metadata: { description: 'Monsso test checkout' },
-      },
+    const incomingPayment = await withRequestContext(
+      'merchant incoming-payment creation',
+      () => client.incomingPayment.create(
+        {
+          url: merchant.resourceServer,
+          accessToken: incomingGrant.access_token.value,
+        },
+        {
+          walletAddress: merchant.id,
+          incomingAmount,
+          metadata: { description: 'Monsso test checkout' },
+        },
+      ),
     )
 
-    const quoteGrant = await client.grant.request(
-      { url: payer.authServer },
-      {
-        access_token: {
-          access: [{ type: 'quote', actions: ['create'] }],
+    const quoteGrant = await withRequestContext(
+      'payer quote grant request',
+      () => client.grant.request(
+        { url: payer.authServer },
+        {
+          access_token: {
+            access: [{ type: 'quote', actions: ['create'] }],
+          },
         },
-      },
+      ),
     )
 
     if (!isFinalizedGrantWithAccessToken(quoteGrant)) {
       throw new PaymentError('The payer wallet did not approve its quote grant.', 502)
     }
 
-    const quote = await client.quote.create(
-      {
-        url: payer.resourceServer,
-        accessToken: quoteGrant.access_token.value,
-      },
-      {
-        method: 'ilp',
-        walletAddress: payer.id,
-        receiver: incomingPayment.id,
-      },
+    const quote = await withRequestContext(
+      'payer quote creation',
+      () => client.quote.create(
+        {
+          url: payer.resourceServer,
+          accessToken: quoteGrant.access_token.value,
+        },
+        {
+          method: 'ilp',
+          walletAddress: payer.id,
+          receiver: incomingPayment.id,
+        },
+      ),
     )
 
     const state = randomUUID()
@@ -234,31 +255,34 @@ export function createOpenPaymentsService({
     const finishUrl = new URL('/payment/finish', appOrigin)
     finishUrl.searchParams.set('state', state)
 
-    const outgoingGrant = await client.grant.request(
-      { url: payer.authServer },
-      {
-        access_token: {
-          access: [
-            {
-              type: 'outgoing-payment',
-              actions: ['create'],
-              identifier: payer.id,
-              limits: {
-                debitAmount: quote.debitAmount,
-                receiver: incomingPayment.id,
+    const outgoingGrant = await withRequestContext(
+      'payer outgoing-payment grant request',
+      () => client.grant.request(
+        { url: payer.authServer },
+        {
+          access_token: {
+            access: [
+              {
+                type: 'outgoing-payment',
+                actions: ['create'],
+                identifier: payer.id,
+                limits: {
+                  debitAmount: quote.debitAmount,
+                  receiver: incomingPayment.id,
+                },
               },
+            ],
+          },
+          interact: {
+            start: ['redirect'],
+            finish: {
+              method: 'redirect',
+              uri: finishUrl.href,
+              nonce: clientNonce,
             },
-          ],
-        },
-        interact: {
-          start: ['redirect'],
-          finish: {
-            method: 'redirect',
-            uri: finishUrl.href,
-            nonce: clientNonce,
           },
         },
-      },
+      ),
     )
 
     if (!isPendingGrant(outgoingGrant)) {
@@ -333,28 +357,34 @@ export function createOpenPaymentsService({
     payment.status = 'processing'
     await savePayment(payments, payment, now)
 
-    const outgoingGrant = await client.grant.continue(
-      {
-        url: payment.continueUri,
-        accessToken: payment.continueAccessToken,
-      },
-      { interact_ref: interactRef },
+    const outgoingGrant = await withRequestContext(
+      'payer outgoing-payment grant continuation',
+      () => client.grant.continue(
+        {
+          url: payment.continueUri,
+          accessToken: payment.continueAccessToken,
+        },
+        { interact_ref: interactRef },
+      ),
     )
 
     if (!isFinalizedGrantWithAccessToken(outgoingGrant)) {
       throw new PaymentError('The payer wallet did not finalize the outgoing-payment grant.', 502)
     }
 
-    const outgoingPayment = await client.outgoingPayment.create(
-      {
-        url: payment.payerResourceServer,
-        accessToken: outgoingGrant.access_token.value,
-      },
-      {
-        walletAddress: payment.payerWalletAddress,
-        quoteId: payment.quoteId,
-        metadata: { description: 'Monsso test checkout' },
-      },
+    const outgoingPayment = await withRequestContext(
+      'payer outgoing-payment creation',
+      () => client.outgoingPayment.create(
+        {
+          url: payment.payerResourceServer,
+          accessToken: outgoingGrant.access_token.value,
+        },
+        {
+          walletAddress: payment.payerWalletAddress,
+          quoteId: payment.quoteId,
+          metadata: { description: 'Monsso test checkout' },
+        },
+      ),
     )
 
     payment.outgoingPaymentId = outgoingPayment.id

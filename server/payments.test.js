@@ -88,6 +88,36 @@ test('identifies which wallet address failed to load during checkout', async () 
   )
 })
 
+test('identifies the Open Payments operation when a checkout POST fails', async () => {
+  const merchantUrl = 'https://ilp.interledger-test.dev/merchant'
+  const payerUrl = 'https://ilp.interledger-test.dev/payer'
+  const client = {
+    walletAddress: {
+      get: async ({ url }) => ({
+        id: url,
+        assetCode: 'USD',
+        assetScale: 2,
+        authServer: 'https://auth.interledger-test.dev',
+        resourceServer: 'https://ilp.interledger-test.dev',
+      }),
+    },
+    grant: {
+      request: async () => { throw new Error('request failed') },
+    },
+  }
+  const service = createOpenPaymentsService({
+    client,
+    merchantWalletAddress: merchantUrl,
+    appOrigin: 'http://localhost:5173',
+    payments: new Map(),
+  })
+
+  await assert.rejects(
+    service.startCheckout({ amount: '10', payerWalletAddress: payerUrl }),
+    /Open Payments merchant incoming-payment grant request failed: request failed/,
+  )
+})
+
 test('verifies the Open Payments interaction hash and rejects tampering', () => {
   const values = {
     clientNonce: 'client-nonce',
