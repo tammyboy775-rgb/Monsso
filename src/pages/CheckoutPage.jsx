@@ -10,10 +10,22 @@ const initialCallback = {
 
 async function requestJson(url, options) {
   const response = await fetch(url, options)
-  const result = await response.json()
+  const responseText = await response.text()
+  let result
+
+  try {
+    result = JSON.parse(responseText)
+  } catch {
+    const bodyStatus = responseText.trim() ? 'not valid JSON' : 'empty'
+    throw new Error(`The payment API response was ${bodyStatus} (HTTP ${response.status}).`)
+  }
 
   if (!response.ok) {
-    throw new Error(result.error ?? 'The payment request failed.')
+    throw new Error(
+      typeof result?.error === 'string'
+        ? result.error
+        : `The payment API request failed (HTTP ${response.status}).`,
+    )
   }
 
   return result
