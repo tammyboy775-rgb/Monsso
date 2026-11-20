@@ -70,6 +70,10 @@ function getSessionCookie(request, secret) {
   return readSessionToken(cookie.slice(sessionCookieName.length + 1), secret)
 }
 
+export function getAuthenticatedUser(request) {
+  return getSessionCookie(request, getSessionSecret())
+}
+
 function sessionCookie(value, maxAge) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
   return `${sessionCookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`

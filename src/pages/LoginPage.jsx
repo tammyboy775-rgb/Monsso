@@ -26,7 +26,11 @@ function LoginPage() {
           try {
             setError('')
             await signIn(credential)
-            window.location.assign('/profile')
+            const requestedDestination = new URLSearchParams(window.location.search).get('next')
+            const destination = requestedDestination === '/workflows'
+              ? requestedDestination
+              : '/profile'
+            window.location.assign(destination)
           } catch (cause) {
             setError(cause.message)
           }

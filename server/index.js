@@ -1,11 +1,12 @@
 import { createServer } from 'node:http'
 import { createAuthenticatedClient } from '@interledger/open-payments'
-import { handleAuthApi } from './auth.js'
+import { AuthError, getAuthenticatedUser, handleAuthApi } from './auth.js'
 import {
   createOpenPaymentsService,
   isTestnetWalletAddress,
   PaymentError,
 } from './payments.js'
+import { createOpenPaymentsWorkflowService } from './workflows.js'
 
 const requiredEnvironment = [
   'OP_CLIENT_WALLET_ADDRESS',
@@ -15,6 +16,8 @@ const requiredEnvironment = [
 const appOrigin = process.env.MONSSO_APP_ORIGIN ?? 'http://localhost:5173'
 const port = 3001
 const payments = new Map()
+const workflowPlans = new Map()
+const activeWorkflowCharges = new Set()
 let clientPromise
 
 function missingConfiguration() {
@@ -51,12 +54,27 @@ async function getService() {
 
   const client = await clientPromise
 
-  return createOpenPaymentsService({
+  const serviceOptions = {
     client,
     merchantWalletAddress: process.env.OP_MERCHANT_WALLET_ADDRESS,
     appOrigin,
     payments,
-  })
+  }
+  const recurringPlans = {
+    get: (id) => workflowPlans.get(id),
+    set: async (id, value) => workflowPlans.set(id, structuredClone(value)),
+    claimCharge: async (id) => {
+      if (activeWorkflowCharges.has(id)) return false
+      activeWorkflowCharges.add(id)
+      return true
+    },
+    releaseCharge: async (id) => activeWorkflowCharges.delete(id),
+  }
+
+  return {
+    ...createOpenPaymentsService(serviceOptions),
+    ...createOpenPaymentsWorkflowService({ ...serviceOptions, workflows: recurringPlans }),
+  }
 }
 
 function sendJson(response, statusCode, body) {
@@ -66,6 +84,18 @@ function sendJson(response, statusCode, body) {
     'X-Content-Type-Options': 'nosniff',
   })
   response.end(JSON.stringify(body))
+}
+
+function sendApiError(response, error) {
+  const knownError = error instanceof PaymentError || error instanceof AuthError
+  const statusCode = knownError ? error.statusCode : 502
+  const message = knownError
+    ? error.message
+    : 'Open Payments test request failed. Check the API server logs and wallet setup.'
+  if (!knownError) {
+    console.error('[api] Open Payments request failed:', error instanceof Error ? error.message : error)
+  }
+  sendJson(response, statusCode, { error: message })
 }
 
 async function readJsonBody(request) {
@@ -103,6 +133,67 @@ async function handleRequest(request, response) {
     return
   }
 
+  if (requestUrl.pathname.startsWith('/api/automation/')) {
+    try {
+      const user = getAuthenticatedUser(request)
+      if (!user) {
+        sendJson(response, 401, { error: 'Sign in to Monsso before using payment workflows.' })
+        return
+      }
+
+      const service = await getService()
+      const route = requestUrl.pathname
+      if (request.method === 'POST' && route === '/api/automation/recurring/start') {
+        const body = await readJsonBody(request)
+        sendJson(response, 201, await service.startRecurring({ ...body, ownerEmail: user.email }))
+        return
+      }
+      if (request.method === 'POST' && route === '/api/automation/recurring/finish') {
+        const body = await readJsonBody(request)
+        sendJson(response, 200, await service.finishRecurring({ ...body, ownerEmail: user.email }))
+        return
+      }
+      if (request.method === 'POST' && route === '/api/automation/split/start') {
+        const body = await readJsonBody(request)
+        sendJson(response, 201, await service.startSplit({ ...body, ownerEmail: user.email }))
+        return
+      }
+      if (request.method === 'POST' && route === '/api/automation/split/finish') {
+        const body = await readJsonBody(request)
+        sendJson(response, 200, await service.finishSplit({ ...body, ownerEmail: user.email }))
+        return
+      }
+
+      const charge = /^\/api\/automation\/recurring\/([0-9a-f-]{36})\/charge$/i.exec(route)
+      if (request.method === 'POST' && charge) {
+        const body = await readJsonBody(request)
+        sendJson(response, 200, await service.chargeRecurring({
+          ...body,
+          id: charge[1],
+          ownerEmail: user.email,
+        }))
+        return
+      }
+
+      const recurring = /^\/api\/automation\/recurring\/([0-9a-f-]{36})$/i.exec(route)
+      if (request.method === 'GET' && recurring) {
+        sendJson(response, 200, await service.getRecurring(recurring[1], user.email))
+        return
+      }
+
+      const split = /^\/api\/automation\/split\/([0-9a-f-]{36})$/i.exec(route)
+      if (request.method === 'GET' && split) {
+        sendJson(response, 200, await service.getSplitStatus(split[1], user.email))
+        return
+      }
+
+      sendJson(response, 404, { error: 'API route not found.' })
+    } catch (error) {
+      sendApiError(response, error)
+    }
+    return
+  }
+
   try {
     if (request.method === 'POST' && requestUrl.pathname === '/api/payments/start') {
       const body = await readJsonBody(request)
@@ -127,16 +218,7 @@ async function handleRequest(request, response) {
 
     sendJson(response, 404, { error: 'API route not found.' })
   } catch (error) {
-    const statusCode = error instanceof PaymentError ? error.statusCode : 502
-    const message = error instanceof PaymentError
-      ? error.message
-      : 'Open Payments test request failed. Check the API server logs and wallet setup.'
-
-    if (!(error instanceof PaymentError)) {
-      console.error('[api] Open Payments request failed:', error instanceof Error ? error.message : error)
-    }
-
-    sendJson(response, statusCode, { error: message })
+    sendApiError(response, error)
   }
 }
 

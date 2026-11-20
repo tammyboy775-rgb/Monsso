@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import splitStatusHandler, { getSplitStatusRoute } from '../api/automation/split/[id].js'
 import { handleVercelApi } from './vercel-api.js'
 
 test('health endpoint reports missing configuration as JSON without exposing values', async () => {
@@ -39,6 +40,36 @@ test('health endpoint reports missing configuration as JSON without exposing val
     assert.deepEqual(JSON.parse(response.body), {
       configured: false,
       missing: required,
+    })
+
+    test('split status function maps its dynamic id and requires sign-in', async () => {
+      assert.equal(
+        getSplitStatusRoute({ query: { id: '123e4567-e89b-12d3-a456-426614174000' } }),
+        '/api/automation/split/123e4567-e89b-12d3-a456-426614174000',
+      )
+
+      const previousSecret = process.env.AUTH_SESSION_SECRET
+      process.env.AUTH_SESSION_SECRET = 'test-session-secret-with-more-than-32-characters'
+      const response = {
+        writeHead(statusCode) {
+          this.statusCode = statusCode
+        },
+        end(body) {
+          this.body = body
+        },
+      }
+
+      try {
+        await splitStatusHandler(
+          { method: 'GET', headers: {}, query: { id: '123e4567-e89b-12d3-a456-426614174000' } },
+          response,
+        )
+        assert.equal(response.statusCode, 401)
+        assert.match(JSON.parse(response.body).error, /Sign in/)
+      } finally {
+        if (previousSecret === undefined) delete process.env.AUTH_SESSION_SECRET
+        else process.env.AUTH_SESSION_SECRET = previousSecret
+      }
     })
   } finally {
     for (const [name, value] of previous) {

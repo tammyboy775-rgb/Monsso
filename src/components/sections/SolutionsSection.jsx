@@ -4,31 +4,31 @@ import './SolutionsSection.css'
 const solutions = [
   {
     icon: 'retry',
-    number: '01 / REVENUE RECOVERY',
-    title: 'Turn failed payments into second chances.',
-    description: 'Smart retries and clear customer updates help recover more recurring revenue before a missed payment becomes a lost customer.',
-    label: 'Learn about revenue recovery',
+    number: '01 / VARIABLE RECURRING',
+    title: 'Authorize a recurring budget, not a fixed bill.',
+    description: 'Payers approve a maximum amount per interval. Monsso can submit variable test charges within that wallet-enforced limit.',
+    label: 'Open variable recurring workflows',
   },
   {
     icon: 'reconcile',
-    number: '02 / RECONCILIATION',
-    title: 'Know what every payment is for.',
-    description: 'Automatically match payments to invoices—even partial payments and bank transfers—without the spreadsheet detective work.',
-    label: 'Learn about reconciliation',
+    number: '02 / PAYMENT METADATA',
+    title: 'Keep invoice context with each payment.',
+    description: 'Attach descriptions, invoice and order references, and structured line items to incoming and outgoing payment resources.',
+    label: 'Open payment metadata workflows',
   },
   {
     icon: 'payout',
-    number: '03 / MULTI-PARTY PAYOUTS',
-    title: 'Get everyone paid, right on time.',
-    description: 'Split funds across vendors, partners, or teams with transparent payout rules and a clear view of where every dollar goes.',
-    label: 'Learn about multi-party payouts',
+    number: '03 / SPLIT PAYOUTS',
+    title: 'Route one payment across recipients.',
+    description: 'Configure two recipient shares and send each allocation directly to its wallet under one payer authorization.',
+    label: 'Open split payout workflows',
   },
   {
     icon: 'billing',
-    number: '04 / FLEXIBLE BILLING',
-    title: 'Billing that bends with your business.',
-    description: 'Handle usage-based pricing, prorated plan changes, and custom billing schedules without building workarounds.',
-    label: 'Learn about flexible billing',
+    number: '04 / SETTLEMENT STATUS',
+    title: 'Reconcile against wallet receipt.',
+    description: 'Track each recipient’s incoming payment independently; a submitted payment is not reported as settled until the wallet confirms receipt.',
+    label: 'Open settlement workflows',
   },
 ]
 
@@ -50,7 +50,7 @@ function SolutionsSection() {
             <span className="feature-number">{solution.number}</span>
             <h3>{solution.title}</h3>
             <p>{solution.description}</p>
-            <a href="#contact" aria-label={solution.label}><ArrowUpRight /></a>
+            <a href="/workflows" aria-label={solution.label}><ArrowUpRight /></a>
           </article>
         ))}
       </div>

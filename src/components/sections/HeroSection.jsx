@@ -15,11 +15,11 @@ function HeroSection() {
         <div className="eyebrow"><span className="eyebrow-dot" /> THE PAYMENT OPERATING SYSTEM</div>
         <h1>Payments should move your business <span>forward.</span></h1>
         <p className="hero-description">
-          Monsso brings billing, payments, reconciliation, and payouts together—so you can spend less time chasing money and more time building what&apos;s next.
+          Explore testnet checkout, variable recurring payment authorizations, rich payment metadata, and programmable split payouts—all built around Open Payments.
         </p>
         <div className="hero-actions">
           <a className="button button-primary" href="/checkout">Try a test payment <ArrowUpRight /></a>
-          <a className="text-link" href="#platform">Explore the platform <ArrowRight /></a>
+          <a className="text-link" href="/workflows">Explore automation workflows <ArrowRight /></a>
         </div>
         <div className="hero-proof">
           <div className="proof-avatars" aria-hidden="true"><span>M</span><span>J</span><span>A</span><b>+</b></div>

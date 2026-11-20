@@ -98,6 +98,45 @@ settlement. Vercel checkout records are stored in Upstash with a 15-minute TTL. 
 test API limits payment-start requests to 20 per IP per minute and status
 requests to 120 per IP per minute.
 
+## Test payment workflows
+
+The signed-in **Workflows** page at `/workflows` contains testnet prototypes for
+variable recurring payments and split payouts. These workflows require the
+same client and merchant configuration as checkout, a signed-in Monsso
+account, and payer/recipient wallet accounts on the Interledger test network.
+Local workflow state is held in memory; Vercel stores it in Upstash. The API
+binds each workflow to the Monsso account that started it.
+
+- **Variable recurring payments:** authorize a monthly outgoing-payment grant
+  for 2–12 periods with a maximum debit amount per period. The initial payment
+  is submitted after wallet authorization. Later installments are triggered
+  manually with **Run test installment**; there is no scheduler or automatic
+  billing. The payer's wallet enforces the recurring grant limit. This demo
+  caps each workflow at 20 recorded charges. The grant is not receiver-scoped
+  at the protocol level; the current workflow implementation directs charges
+  only to the configured merchant. Review the wallet authorization prompt.
+- **Split payouts:** choose two different recipient test wallets and whole
+  percentage shares that total 100%. The payer authorizes one grant capped to
+  the combined quote amount, then Monsso submits one outgoing payment to each
+  recipient. Both recipients must use the same test currency and scale. The
+  dashboard reports each recipient's payment and receipt status separately;
+  Monsso does not custody or route funds. The grant is amount-capped but not
+  protocol-bound to those recipients; verify both recipient wallets and
+  amounts in the payer's authorization flow.
+- **Payment metadata:** each payment carries a required description, optional
+  invoice and order references, and up to 20 optional line items. A line item
+  has a description, quantity, unit amount, and optional reference; when line
+  items are provided, their total must equal the payment amount. Metadata is
+  size-limited. Do not include personal or sensitive information.
+
+Quotes expire. If a quote expires while wallet authorization is pending, the
+workflow must be started again. Split settlement is not atomic: one recipient
+may receive funds even if the other recipient's payment fails. Check the
+per-recipient statuses and do not treat submission as settlement; receipt is
+confirmed by polling each recipient's incoming payment. These are testnet-only
+flows and have not been verified end to end until a payer and recipient test
+wallet demonstration succeeds. Never use real funds.
+
 ## Validate
 
 ```powershell

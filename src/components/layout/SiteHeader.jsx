@@ -15,6 +15,7 @@ function SiteHeader() {
       <nav className="main-nav" aria-label="Main navigation">
         <a href="#platform">Platform</a>
         <a href="#solutions">Solutions</a>
+        <a href="/workflows">Workflows</a>
         <a href="#about">Why Monsso</a>
       </nav>
       <div className="header-actions">
