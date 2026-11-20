@@ -121,6 +121,17 @@ function assertWalletDetails(walletAddress) {
   }
 }
 
+async function getWalletAddress(client, url, role) {
+  try {
+    return await client.walletAddress.get({ url })
+  } catch {
+    throw new PaymentError(
+      `Could not load the ${role} Open Payments wallet address. Verify its exact test-wallet URL and that the wallet is available.`,
+      502,
+    )
+  }
+}
+
 async function cleanExpiredPayments(payments, now) {
   if (typeof payments.cleanExpired === 'function') {
     await payments.cleanExpired(now)
@@ -157,9 +168,9 @@ export function createOpenPaymentsService({
       throw new PaymentError('Enter a valid Open Payments test-wallet address.')
     }
 
-    const merchant = await client.walletAddress.get({ url: merchantWalletAddress })
+    const merchant = await getWalletAddress(client, merchantWalletAddress, 'merchant')
     assertWalletDetails(merchant)
-    const payer = await client.walletAddress.get({ url: payerWalletAddress })
+    const payer = await getWalletAddress(client, payerWalletAddress, 'payer')
     assertWalletDetails(payer)
 
     const incomingAmount = {
