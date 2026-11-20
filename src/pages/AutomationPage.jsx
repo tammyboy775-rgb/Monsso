@@ -111,19 +111,25 @@ const initialMetadata = {
   lineItemsText: '[]',
 }
 
+const workflowTabs = ['recurring', 'metadata', 'split', 'settlement']
+
 function AutomationPage() {
   const { user, loading } = useAuth()
   const callbackActive = window.location.pathname === '/automation/finish'
   const callbackValid = callback.state && callback.hash && callback.interactRef &&
     ['recurring', 'split'].includes(callback.workflow)
+  const requestedTab = query.get('tab')
+  const signInDestination = workflowTabs.includes(requestedTab)
+    ? `/workflows?tab=${requestedTab}`
+    : '/workflows'
   const initialTab = callbackActive && callbackValid
-    ? callback.workflow
-    : query.has('split')
-      ? 'split'
-      : 'recurring'
-  const [activeTab, setActiveTab] = useState(
-    initialTab,
-  )
+    ? 'settlement'
+    : workflowTabs.includes(requestedTab)
+      ? requestedTab
+      : query.has('split') || query.has('plan')
+        ? 'settlement'
+        : 'recurring'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [busy, setBusy] = useState(callbackActive && Boolean(callbackValid))
   const [error, setError] = useState(
     callbackActive && !callbackValid
@@ -172,6 +178,28 @@ function AutomationPage() {
     return result
   }, [])
 
+  function selectTab(tab) {
+    setActiveTab(tab)
+    setError('')
+    setNotice('')
+    const params = new URLSearchParams(window.location.search)
+    params.set('tab', tab)
+    window.history.replaceState(null, '', `/workflows?${params}`)
+  }
+
+  async function refreshSettlement() {
+    setBusy(true)
+    setError('')
+    try {
+      if (splitResult?.id) await refreshSplit(splitResult.id)
+      else if (recurringPlan?.id) await refreshRecurring(recurringPlan.id)
+    } catch (cause) {
+      setError(cause.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (callbackActive) {
       if (!callbackValid) return undefined
@@ -191,11 +219,15 @@ function AutomationPage() {
           if (!active) return
           if (callback.workflow === 'recurring') {
             setRecurringPlan(result)
-            window.history.replaceState(null, '', `/workflows?plan=${encodeURIComponent(result.id)}`)
           } else {
             setSplitResult(result)
-            window.history.replaceState(null, '', `/workflows?split=${encodeURIComponent(result.id)}`)
           }
+          const resultParam = callback.workflow === 'recurring' ? 'plan' : 'split'
+          window.history.replaceState(
+            null,
+            '',
+            `/workflows?tab=settlement&${resultParam}=${encodeURIComponent(result.id)}`,
+          )
           setNotice('The wallet authorization was verified.')
         })
         .catch((cause) => {
@@ -337,7 +369,12 @@ function AutomationPage() {
         <section className="workflow-card workflow-locked">
           <h1>Sign in to manage test workflows</h1>
           <p>Workflow controls are limited to your Monsso account. Payers still authorize every recurring grant in their wallet.</p>
-          <a className="workflow-primary-link" href="/login?next=%2Fworkflows">Sign in with Google</a>
+          <a
+            className="workflow-primary-link"
+            href={`/login?next=${encodeURIComponent(signInDestination)}`}
+          >
+            Sign in with Google
+          </a>
         </section>
       </main>
     )
@@ -364,21 +401,155 @@ function AutomationPage() {
             type="button"
             role="tab"
             aria-selected={activeTab === 'recurring'}
-            onClick={() => { setActiveTab('recurring'); setError(''); setNotice('') }}
+            onClick={() => selectTab('recurring')}
           >
             Variable recurring
           </button>
           <button
             type="button"
             role="tab"
+            aria-selected={activeTab === 'metadata'}
+            onClick={() => selectTab('metadata')}
+          >
+            Payment metadata
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeTab === 'split'}
-            onClick={() => { setActiveTab('split'); setError(''); setNotice('') }}
+            onClick={() => selectTab('split')}
           >
             Split payout
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'settlement'}
+            onClick={() => selectTab('settlement')}
+          >
+            Settlement status
+          </button>
         </div>
 
-        {activeTab === 'recurring' ? (
+        {activeTab === 'metadata' ? (
+          <section className="workflow-panel" role="tabpanel" aria-labelledby="metadata-title">
+            <div className="workflow-panel-heading">
+              <span className="workflow-step">02</span>
+              <div>
+                <h2 id="metadata-title">Payment metadata</h2>
+                <p>Keep descriptions, invoice references, order references, and line items attached to real payments.</p>
+              </div>
+            </div>
+            <p className="workflow-notice">
+              Metadata is included with a recurring charge or a split payout; it does not create a payment by itself.
+              Choose the payment flow first, then fill in its metadata fields before authorizing the test payment.
+            </p>
+            <button
+              className="workflow-secondary"
+              type="button"
+              onClick={() => selectTab('recurring')}
+            >
+              Add metadata to a recurring payment
+            </button>
+            <button
+              className="workflow-secondary"
+              type="button"
+              onClick={() => selectTab('split')}
+            >
+              Add metadata to a split payout
+            </button>
+          </section>
+        ) : activeTab === 'settlement' ? (
+          <section className="workflow-panel" role="tabpanel" aria-labelledby="settlement-title">
+            <div className="workflow-panel-heading">
+              <span className="workflow-step">04</span>
+              <div>
+                <h2 id="settlement-title">Settlement status</h2>
+                <p>Check whether submitted test payments have been received by the wallet.</p>
+              </div>
+            </div>
+            {splitResult ? (
+              <>
+                <div className="workflow-result-head">
+                  <span className={`workflow-status workflow-status-${splitResult.status}`}>
+                    {splitResult.status.replace('_', ' ')}
+                  </span>
+                  <strong>Total {formatAmount(splitResult.totalAmount)}</strong>
+                </div>
+                {splitResult.recipients.map((recipient, index) => (
+                  <article className="workflow-split-result" key={recipient.walletAddress}>
+                    <div className="workflow-split-index">0{index + 1}</div>
+                    <div>
+                      <strong>{recipient.percentage}% · {formatAmount(recipient.incomingAmount)}</strong>
+                      <span>{recipient.metadata?.invoiceReference || recipient.metadata?.description}</span>
+                      <small>{recipient.walletAddress}</small>
+                      {recipient.receivedAmount && <small>Received {formatAmount(recipient.receivedAmount)}</small>}
+                    </div>
+                    <span className={`workflow-status workflow-status-${recipient.status}`}>{recipient.status}</span>
+                  </article>
+                ))}
+                <button
+                  className="workflow-refresh"
+                  type="button"
+                  disabled={busy}
+                  onClick={refreshSettlement}
+                >
+                  Refresh recipient settlement status
+                </button>
+              </>
+            ) : recurringPlan ? (
+              <>
+                <div className="workflow-budget-grid">
+                  <div><span>Monthly maximum</span><strong>{formatAmount(recurringPlan.maxPerInterval)}</strong></div>
+                  <div><span>Spent this interval</span><strong>{formatAmount(recurringPlan.spentDebitAmount)}</strong></div>
+                  <div><span>Remaining this interval</span><strong>{formatAmount(recurringPlan.remainingDebitAmount)}</strong></div>
+                </div>
+                <div className="workflow-payment-list">
+                  <h3>Installment and receipt status</h3>
+                  {recurringPlan.payments.map((payment) => (
+                    <article className="workflow-payment-row" key={payment.id}>
+                      <div>
+                        <strong>{formatAmount(payment.amount)}</strong>
+                        <span>{payment.metadata?.invoiceReference || payment.metadata?.description}</span>
+                      </div>
+                      <span className={`workflow-status workflow-status-${payment.status}`}>{payment.status}</span>
+                      {payment.receivedAmount && <small>Received {formatAmount(payment.receivedAmount)}</small>}
+                    </article>
+                  ))}
+                </div>
+                <button
+                  className="workflow-refresh"
+                  type="button"
+                  disabled={busy}
+                  onClick={refreshSettlement}
+                >
+                  Refresh spend and settlement status
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="workflow-notice">
+                  Settlement details are available after a payer authorizes a recurring payment or split payout.
+                  Submitted payments remain pending until the receiving wallet confirms receipt.
+                </p>
+                <button
+                  className="workflow-secondary"
+                  type="button"
+                  onClick={() => selectTab('recurring')}
+                >
+                  Start a recurring payment
+                </button>
+                <button
+                  className="workflow-secondary"
+                  type="button"
+                  onClick={() => selectTab('split')}
+                >
+                  Create a split payout
+                </button>
+              </>
+            )}
+          </section>
+        ) : activeTab === 'recurring' ? (
           <section className="workflow-panel" role="tabpanel" aria-labelledby="recurring-title">
             <div className="workflow-panel-heading">
               <span className="workflow-step">01</span>

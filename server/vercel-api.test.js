@@ -41,49 +41,49 @@ test('health endpoint reports missing configuration as JSON without exposing val
       configured: false,
       missing: required,
     })
-
-    test('shared API function reconstructs the route from the Vercel rewrite', () => {
-      assert.equal(
-        getApiRoute({ query: {
-          route: 'automation/split/123e4567-e89b-12d3-a456-426614174000',
-        } }),
-        '/api/automation/split/123e4567-e89b-12d3-a456-426614174000',
-      )
-    })
-
-    test('shared API function requires sign-in for workflow routes', async () => {
-      const previousSecret = process.env.AUTH_SESSION_SECRET
-      process.env.AUTH_SESSION_SECRET = 'test-session-secret-with-more-than-32-characters'
-      const response = {
-        writeHead(statusCode) {
-          this.statusCode = statusCode
-        },
-        end(body) {
-          this.body = body
-        },
-      }
-
-      try {
-        await apiHandler(
-          {
-            method: 'GET',
-            url: '/api?route=automation%2Fsplit%2F123e4567-e89b-12d3-a456-426614174000',
-            query: { route: 'automation/split/123e4567-e89b-12d3-a456-426614174000' },
-            headers: {},
-          },
-          response,
-        )
-        assert.equal(response.statusCode, 401)
-        assert.match(JSON.parse(response.body).error, /Sign in/)
-      } finally {
-        if (previousSecret === undefined) delete process.env.AUTH_SESSION_SECRET
-        else process.env.AUTH_SESSION_SECRET = previousSecret
-      }
-    })
   } finally {
     for (const [name, value] of previous) {
       if (value === undefined) delete process.env[name]
       else process.env[name] = value
     }
+  }
+})
+
+test('shared API function reconstructs the route from the Vercel rewrite', () => {
+  assert.equal(
+    getApiRoute({ query: {
+      route: 'automation/split/123e4567-e89b-12d3-a456-426614174000',
+    } }),
+    '/api/automation/split/123e4567-e89b-12d3-a456-426614174000',
+  )
+})
+
+test('shared API function requires sign-in for workflow routes', async () => {
+  const previousSecret = process.env.AUTH_SESSION_SECRET
+  process.env.AUTH_SESSION_SECRET = 'test-session-secret-with-more-than-32-characters'
+  const response = {
+    writeHead(statusCode) {
+      this.statusCode = statusCode
+    },
+    end(body) {
+      this.body = body
+    },
+  }
+
+  try {
+    await apiHandler(
+      {
+        method: 'GET',
+        url: '/api?route=automation%2Fsplit%2F123e4567-e89b-12d3-a456-426614174000',
+        query: { route: 'automation/split/123e4567-e89b-12d3-a456-426614174000' },
+        headers: {},
+      },
+      response,
+    )
+    assert.equal(response.statusCode, 401)
+    assert.match(JSON.parse(response.body).error, /Sign in/)
+  } finally {
+    if (previousSecret === undefined) delete process.env.AUTH_SESSION_SECRET
+    else process.env.AUTH_SESSION_SECRET = previousSecret
   }
 })

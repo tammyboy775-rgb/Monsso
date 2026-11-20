@@ -4,6 +4,7 @@ import './SolutionsSection.css'
 const solutions = [
   {
     icon: 'retry',
+    tab: 'recurring',
     number: '01 / VARIABLE RECURRING',
     title: 'Authorize a recurring budget, not a fixed bill.',
     description: 'Payers approve a maximum amount per interval. Monsso can submit variable test charges within that wallet-enforced limit.',
@@ -11,6 +12,7 @@ const solutions = [
   },
   {
     icon: 'reconcile',
+    tab: 'metadata',
     number: '02 / PAYMENT METADATA',
     title: 'Keep invoice context with each payment.',
     description: 'Attach descriptions, invoice and order references, and structured line items to incoming and outgoing payment resources.',
@@ -18,6 +20,7 @@ const solutions = [
   },
   {
     icon: 'payout',
+    tab: 'split',
     number: '03 / SPLIT PAYOUTS',
     title: 'Route one payment across recipients.',
     description: 'Configure two recipient shares and send each allocation directly to its wallet under one payer authorization.',
@@ -25,6 +28,7 @@ const solutions = [
   },
   {
     icon: 'billing',
+    tab: 'settlement',
     number: '04 / SETTLEMENT STATUS',
     title: 'Reconcile against wallet receipt.',
     description: 'Track each recipient’s incoming payment independently; a submitted payment is not reported as settled until the wallet confirms receipt.',
@@ -50,7 +54,7 @@ function SolutionsSection() {
             <span className="feature-number">{solution.number}</span>
             <h3>{solution.title}</h3>
             <p>{solution.description}</p>
-            <a href="/workflows" aria-label={solution.label}><ArrowUpRight /></a>
+            <a href={`/workflows?tab=${solution.tab}`} aria-label={solution.label}><ArrowUpRight /></a>
           </article>
         ))}
       </div>

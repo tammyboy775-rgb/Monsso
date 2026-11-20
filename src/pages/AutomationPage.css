@@ -50,13 +50,13 @@
 .workflow-tabs {
   margin: 28px 0 16px;
   padding: 5px;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 5px;
   background: #f0edf5;
   border-radius: 12px;
 }
 .workflow-tabs button {
-  flex: 1;
   min-height: 42px;
   padding: 9px;
   color: #6b6474;
@@ -381,5 +381,6 @@
   .workflow-panel { padding: 22px 18px; }
   .workflow-field-row,
   .workflow-budget-grid { grid-template-columns: 1fr; }
+  .workflow-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow-tabs button { font-size: 11px; }
 }

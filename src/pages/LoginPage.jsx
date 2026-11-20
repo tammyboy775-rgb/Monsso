@@ -27,7 +27,8 @@ function LoginPage() {
             setError('')
             await signIn(credential)
             const requestedDestination = new URLSearchParams(window.location.search).get('next')
-            const destination = requestedDestination === '/workflows'
+            const destination = /^\/workflows(?:\?tab=(?:recurring|metadata|split|settlement))?$/
+              .test(requestedDestination || '')
               ? requestedDestination
               : '/profile'
             window.location.assign(destination)
