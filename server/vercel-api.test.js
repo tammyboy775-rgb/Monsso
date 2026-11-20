@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import apiHandler, { getApiRoute } from '../api/[...path].js'
+import apiHandler, { getApiRoute } from '../api/index.js'
 import { handleVercelApi } from './vercel-api.js'
 
 test('health endpoint reports missing configuration as JSON without exposing values', async () => {
@@ -42,16 +42,16 @@ test('health endpoint reports missing configuration as JSON without exposing val
       missing: required,
     })
 
-    test('catch-all API function preserves routes and query strings', () => {
+    test('shared API function reconstructs the route from the Vercel rewrite', () => {
       assert.equal(
-        getApiRoute({
-          url: '/api/automation/split/123e4567-e89b-12d3-a456-426614174000?from=dashboard',
-        }),
+        getApiRoute({ query: {
+          route: 'automation/split/123e4567-e89b-12d3-a456-426614174000',
+        } }),
         '/api/automation/split/123e4567-e89b-12d3-a456-426614174000',
       )
     })
 
-    test('catch-all API function requires sign-in for workflow routes', async () => {
+    test('shared API function requires sign-in for workflow routes', async () => {
       const previousSecret = process.env.AUTH_SESSION_SECRET
       process.env.AUTH_SESSION_SECRET = 'test-session-secret-with-more-than-32-characters'
       const response = {
@@ -67,7 +67,8 @@ test('health endpoint reports missing configuration as JSON without exposing val
         await apiHandler(
           {
             method: 'GET',
-            url: '/api/automation/split/123e4567-e89b-12d3-a456-426614174000',
+            url: '/api?route=automation%2Fsplit%2F123e4567-e89b-12d3-a456-426614174000',
+            query: { route: 'automation/split/123e4567-e89b-12d3-a456-426614174000' },
             headers: {},
           },
           response,
