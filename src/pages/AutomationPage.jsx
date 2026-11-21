@@ -51,6 +51,16 @@ function createMetadata({ description, invoiceReference, orderReference, lineIte
   }
 }
 
+function formatPaymentReferences(metadata) {
+  return [
+    ['Invoice', metadata?.invoiceReference],
+    ['Order', metadata?.orderReference],
+  ]
+    .filter(([, reference]) => reference)
+    .map(([label, reference]) => `${label}: ${reference}`)
+    .join(' · ')
+}
+
 function MetadataFields({ value, onChange, prefix }) {
   function update(key, nextValue) {
     onChange({ ...value, [key]: nextValue })
@@ -219,16 +229,24 @@ function AutomationPage() {
           if (!active) return
           if (callback.workflow === 'recurring') {
             setRecurringPlan(result)
+            setActiveTab('recurring')
+            if (result.status === 'active') {
+              setNotice(
+                'Variable recurring session created successfully. The first installment was submitted; its settlement status is shown below.',
+              )
+            } else {
+              setError('The recurring session was authorized, but its first installment failed. Review the payment status below.')
+            }
           } else {
             setSplitResult(result)
+            setNotice('The wallet authorization was verified.')
           }
           const resultParam = callback.workflow === 'recurring' ? 'plan' : 'split'
           window.history.replaceState(
             null,
             '',
-            `/workflows?tab=settlement&${resultParam}=${encodeURIComponent(result.id)}`,
+            `/workflows?tab=${callback.workflow === 'recurring' ? 'recurring' : 'settlement'}&${resultParam}=${encodeURIComponent(result.id)}`,
           )
-          setNotice('The wallet authorization was verified.')
         })
         .catch((cause) => {
           if (active) setError(cause.message)
@@ -511,6 +529,9 @@ function AutomationPage() {
                       <div>
                         <strong>{formatAmount(payment.amount)}</strong>
                         <span>{payment.metadata?.invoiceReference || payment.metadata?.description}</span>
+                        {formatPaymentReferences(payment.metadata) && (
+                          <small>{formatPaymentReferences(payment.metadata)}</small>
+                        )}
                       </div>
                       <span className={`workflow-status workflow-status-${payment.status}`}>{payment.status}</span>
                       {payment.receivedAmount && <small>Received {formatAmount(payment.receivedAmount)}</small>}
@@ -649,7 +670,13 @@ function AutomationPage() {
                   <h3>Installment and reconciliation history</h3>
                   {recurringPlan.payments.map((payment) => (
                     <article className="workflow-payment-row" key={payment.id}>
-                      <div><strong>{formatAmount(payment.amount)}</strong><span>{payment.metadata?.invoiceReference || payment.metadata?.description}</span></div>
+                      <div>
+                        <strong>{formatAmount(payment.amount)}</strong>
+                        <span>{payment.metadata?.invoiceReference || payment.metadata?.description}</span>
+                        {formatPaymentReferences(payment.metadata) && (
+                          <small>{formatPaymentReferences(payment.metadata)}</small>
+                        )}
+                      </div>
                       <span className={`workflow-status workflow-status-${payment.status}`}>{payment.status}</span>
                       {payment.receivedAmount && <small>Received {formatAmount(payment.receivedAmount)}</small>}
                     </article>

@@ -134,6 +134,27 @@ test('verifies the Open Payments interaction hash and rejects tampering', () => 
   assert.equal(verifyInteractionHash({ ...values, receivedHash: changedHash }), false)
 })
 
+test('verifies wallet interaction hashes with standard Base64 and endpoint slash variants', () => {
+  const values = {
+    clientNonce: 'client-nonce',
+    authorizationServerNonce: 'server-nonce',
+    interactRef: 'interaction-reference',
+    grantUri: 'https://auth.interledger-test.dev',
+  }
+  const receivedHash = createHash('sha256')
+    .update(
+      `${values.clientNonce}\n${values.authorizationServerNonce}\n${values.interactRef}\n${values.grantUri}/`,
+      'ascii',
+    )
+    .digest('base64')
+
+  assert.equal(verifyInteractionHash({ ...values, receivedHash }), true)
+  assert.equal(
+    verifyInteractionHash({ ...values, interactRef: 'different-reference', receivedHash }),
+    false,
+  )
+})
+
 test('rejects a checkout whose quote expired before payer authorization completed', async () => {
   const state = '00000000-0000-4000-8000-000000000001'
   const service = createOpenPaymentsService({

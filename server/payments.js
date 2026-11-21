@@ -95,17 +95,37 @@ export function verifyInteractionHash({
     !interactRef ||
     !grantUri ||
     typeof receivedHash !== 'string' ||
-    !/^[A-Za-z0-9_-]{43}$/.test(receivedHash)
+    !/^[A-Za-z0-9+/_-]{43}=?$/.test(receivedHash)
   ) {
     return false
   }
 
-  const hashBase = `${clientNonce}\n${authorizationServerNonce}\n${interactRef}\n${grantUri}`
-  const expectedHash = createHash('sha256').update(hashBase, 'ascii').digest('base64url')
-  const expected = Buffer.from(expectedHash, 'ascii')
   const received = Buffer.from(receivedHash, 'ascii')
+  const uriWithoutTrailingSlash = grantUri.replace(/\/+$/, '')
+  const grantUris = new Set([
+    grantUri,
+    uriWithoutTrailingSlash,
+    `${uriWithoutTrailingSlash}/`,
+  ])
 
-  return expected.length === received.length && timingSafeEqual(expected, received)
+  for (const uri of grantUris) {
+    const hashBase = `${clientNonce}\n${authorizationServerNonce}\n${interactRef}\n${uri}`
+    const digest = createHash('sha256').update(hashBase, 'ascii').digest()
+    const expectedHashes = [
+      digest.toString('base64url'),
+      digest.toString('base64'),
+      digest.toString('base64').replace(/=+$/, ''),
+    ]
+
+    if (expectedHashes.some((expectedHash) => {
+      const expected = Buffer.from(expectedHash, 'ascii')
+      return expected.length === received.length && timingSafeEqual(expected, received)
+    })) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function assertWalletDetails(walletAddress) {
