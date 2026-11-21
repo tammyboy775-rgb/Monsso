@@ -9,6 +9,7 @@ const merchantAddress = 'https://ilp.interledger-test.dev/merchant'
 
 function createWorkflowFixture({
   quoteExpiresAt = new Date(Date.now() + 60_000).toISOString(),
+  walletCurrencies = {},
 } = {}) {
   function createStore(records) {
     return {
@@ -33,10 +34,11 @@ function createWorkflowFixture({
         const id = url === 'https://alias.interledger-test.dev/merchant'
           ? merchantAddress
           : url
+        const currency = walletCurrencies[id] ?? { assetCode: 'USD', assetScale: 2 }
         return {
           id,
-          assetCode: 'USD',
-          assetScale: 2,
+          assetCode: currency.assetCode,
+          assetScale: currency.assetScale,
           authServer: 'https://auth.interledger-test.dev',
           resourceServer: 'https://ilp.interledger-test.dev/op',
         }
@@ -94,7 +96,8 @@ function createWorkflowFixture({
         quoteCount += 1
         const incoming = incomingPayments.get(body.receiver)
         const received = BigInt(incoming.incomingAmount.value)
-        const debit = (received * 105n + 99n) / 100n
+        const ratePercent = incoming.incomingAmount.assetCode === 'EUR' ? 120n : 105n
+        const debit = (received * ratePercent + 99n) / 100n
         const quote = {
           id: `https://ilp.interledger-test.dev/quotes/${quoteCount}`,
           receiver: body.receiver,
@@ -291,10 +294,9 @@ test('splits one authorized checkout into two exact recipient allocations with m
   const started = await fixture.service.startSplit({
     ownerEmail,
     payerWalletAddress: payerAddress,
-    totalAmount: '10.01',
     recipients: [
-      { walletAddress: merchantAddress, percentage: 75 },
-      { walletAddress: 'https://wallet.interledger-test.dev/partner', percentage: 25 },
+      { walletAddress: merchantAddress, amount: '7.50' },
+      { walletAddress: 'https://wallet.interledger-test.dev/partner', amount: '2.51' },
     ],
     metadata: {
       description: 'Marketplace order',
@@ -308,6 +310,7 @@ test('splits one authorized checkout into two exact recipient allocations with m
     },
   })
   assert.deepEqual(started.allocations.map(({ incomingAmount }) => incomingAmount.value), ['750', '251'])
+  assert.equal(started.maxDebitAmount.value, '1052')
 
   const outgoingGrant = fixture.grantRequests.find((request) => request.interact)
   assert.equal(outgoingGrant.access_token.access[0].limits.debitAmount.value, '1052')
@@ -318,24 +321,70 @@ test('splits one authorized checkout into two exact recipient allocations with m
   assert.equal(result.status, 'completed')
   assert.equal(result.recipients.length, 2)
   assert.deepEqual(result.recipients.map(({ status }) => status), ['completed', 'completed'])
-  assert.equal(result.recipients[0].metadata.split.percentage, 75)
+  assert.deepEqual(
+    result.recipients.map(({ incomingAmount }) => incomingAmount.value),
+    ['750', '251'],
+  )
   assert.equal(fixture.getOutgoingCount(), 2)
 })
 
-test('rejects split rules that do not total 100 percent before creating wallet resources', async () => {
+test('quotes mixed-currency recipient amounts into the payer currency', async () => {
+  const partnerAddress = 'https://wallet.interledger-test.dev/euro-partner'
+  const fixture = createWorkflowFixture({
+    walletCurrencies: {
+      [partnerAddress]: { assetCode: 'EUR', assetScale: 2 },
+    },
+  })
+  const started = await fixture.service.startSplit({
+    ownerEmail,
+    payerWalletAddress: payerAddress,
+    recipients: [
+      { walletAddress: merchantAddress, amount: '10.00' },
+      { walletAddress: partnerAddress, amount: '8.00' },
+    ],
+    metadata: { description: 'Mixed-currency order' },
+  })
+
+  assert.deepEqual(
+    started.allocations.map(({ incomingAmount }) => (
+      [incomingAmount.value, incomingAmount.assetCode]
+    )),
+    [['1000', 'USD'], ['800', 'EUR']],
+  )
+  assert.deepEqual(
+    started.allocations.map(({ debitAmount }) => (
+      [debitAmount.value, debitAmount.assetCode]
+    )),
+    [['1050', 'USD'], ['960', 'USD']],
+  )
+  assert.deepEqual(started.maxDebitAmount, {
+    value: '2010',
+    assetCode: 'USD',
+    assetScale: 2,
+  })
+
+  const result = await finishAuthorization(fixture, started.state, 'finishSplit')
+  assert.deepEqual(
+    result.recipients.map(({ incomingAmount, debitAmount }) => (
+      [incomingAmount.assetCode, debitAmount.assetCode]
+    )),
+    [['USD', 'USD'], ['EUR', 'USD']],
+  )
+})
+
+test('rejects invalid recipient amounts before creating wallet resources', async () => {
   const fixture = createWorkflowFixture()
   await assert.rejects(
     fixture.service.startSplit({
       ownerEmail,
       payerWalletAddress: payerAddress,
-      totalAmount: '10.00',
       recipients: [
-        { walletAddress: merchantAddress, percentage: 70 },
-        { walletAddress: 'https://wallet.interledger-test.dev/partner', percentage: 20 },
+        { walletAddress: merchantAddress, amount: '0' },
+        { walletAddress: 'https://wallet.interledger-test.dev/partner', amount: '10.00' },
       ],
-      metadata: { description: 'Invalid allocation' },
+      metadata: { description: 'Invalid recipient amount' },
     }),
-    /total 100%/,
+    /must be greater than zero/,
   )
   assert.equal(fixture.grantRequests.length, 0)
 })
@@ -346,15 +395,40 @@ test('rejects aliases that resolve both split recipients to the same wallet', as
     fixture.service.startSplit({
       ownerEmail,
       payerWalletAddress: payerAddress,
-      totalAmount: '10.00',
       recipients: [
-        { walletAddress: merchantAddress, percentage: 60 },
-        { walletAddress: 'https://alias.interledger-test.dev/merchant', percentage: 40 },
+        { walletAddress: merchantAddress, amount: '6.00' },
+        { walletAddress: 'https://alias.interledger-test.dev/merchant', amount: '4.00' },
       ],
       metadata: { description: 'Duplicate recipient test' },
     }),
     /two different test-wallet recipients/,
   )
+})
+
+test('requires a single currency for split line-item metadata', async () => {
+  const partnerAddress = 'https://wallet.interledger-test.dev/euro-partner'
+  const fixture = createWorkflowFixture({
+    walletCurrencies: {
+      [partnerAddress]: { assetCode: 'EUR', assetScale: 2 },
+    },
+  })
+
+  await assert.rejects(
+    fixture.service.startSplit({
+      ownerEmail,
+      payerWalletAddress: payerAddress,
+      recipients: [
+        { walletAddress: merchantAddress, amount: '10.00' },
+        { walletAddress: partnerAddress, amount: '8.00' },
+      ],
+      metadata: {
+        description: 'Mixed-currency order',
+        lineItems: [{ description: 'Item', quantity: 1, unitAmount: '18.00' }],
+      },
+    }),
+    /Omit line items for a mixed-currency split/,
+  )
+  assert.equal(fixture.grantRequests.length, 0)
 })
 
 test('rejects line-item metadata whose total differs from the payment amount', async () => {
@@ -407,10 +481,9 @@ test('rejects split authorization after its quotes expire', async () => {
   const started = await fixture.service.startSplit({
     ownerEmail,
     payerWalletAddress: payerAddress,
-    totalAmount: '10.00',
     recipients: [
-      { walletAddress: merchantAddress, percentage: 60 },
-      { walletAddress: 'https://wallet.interledger-test.dev/partner', percentage: 40 },
+      { walletAddress: merchantAddress, amount: '6.00' },
+      { walletAddress: 'https://wallet.interledger-test.dev/partner', amount: '4.00' },
     ],
     metadata: { description: 'Marketplace order' },
   })

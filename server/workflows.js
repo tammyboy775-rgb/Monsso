@@ -130,13 +130,11 @@ function amount(value, wallet) {
   }
 }
 
-function assertMatchingCurrency(wallets) {
-  const first = wallets[0]
-  if (wallets.some((wallet) => (
-    wallet.assetCode !== first.assetCode || wallet.assetScale !== first.assetScale
-  ))) {
-    throw new PaymentError('All split recipients must use the same test currency and scale.')
-  }
+function amountFromMinorUnits(value, assetScale) {
+  const digits = value.toString().padStart(assetScale + 1, '0')
+  return assetScale
+    ? `${digits.slice(0, -assetScale)}.${digits.slice(-assetScale)}`
+    : digits
 }
 
 function sumAmounts(amounts) {
@@ -651,7 +649,6 @@ export function createOpenPaymentsWorkflowService({
   async function startSplit({
     ownerEmail,
     payerWalletAddress,
-    totalAmount,
     recipients,
     metadata: inputMetadata,
   }) {
@@ -662,15 +659,12 @@ export function createOpenPaymentsWorkflowService({
     if (recipients.some((recipient) => (
       !recipient || typeof recipient !== 'object' || Array.isArray(recipient)
     ))) {
-      throw new PaymentError('Each split recipient must be a wallet and percentage object.')
+      throw new PaymentError('Each split recipient must be a wallet and receive-amount object.')
     }
-    if (
-      !Number.isInteger(recipients[0].percentage) ||
-      !Number.isInteger(recipients[1].percentage) ||
-      recipients.some((recipient) => recipient.percentage < 1 || recipient.percentage > 99) ||
-      recipients[0].percentage + recipients[1].percentage !== 100
-    ) {
-      throw new PaymentError('Split percentages must be whole numbers from 1 to 99 and total 100%.')
+    if (recipients.some((recipient) => (
+      typeof recipient.walletAddress !== 'string' || typeof recipient.amount !== 'string'
+    ))) {
+      throw new PaymentError('Each split recipient must include a wallet address and receive amount.')
     }
     if (recipients[0].walletAddress === recipients[1].walletAddress) {
       throw new PaymentError('Choose two different test-wallet recipients.')
@@ -683,34 +677,41 @@ export function createOpenPaymentsWorkflowService({
     if (recipientWallets[0].id === recipientWallets[1].id) {
       throw new PaymentError('Choose two different test-wallet recipients.')
     }
-    assertMatchingCurrency(recipientWallets)
-    const total = amount(totalAmount, recipientWallets[0])
-    const metadata = normalizeMetadata(inputMetadata, totalAmount, recipientWallets[0].assetScale)
-    const totalMinor = BigInt(total.value)
-    const firstMinor = totalMinor * BigInt(recipients[0].percentage) / 100n
-    const splitValues = [
-      firstMinor,
-      totalMinor - firstMinor,
-    ]
-    if (splitValues.some((value) => value <= 0n)) {
-      throw new PaymentError('The total amount is too small to pay both recipients.')
+    const allocations = recipients.map((recipient, index) => (
+      amount(recipient.amount, recipientWallets[index])
+    ))
+    const sameCurrency = recipientWallets.every((wallet) => (
+      wallet.assetCode === recipientWallets[0].assetCode &&
+      wallet.assetScale === recipientWallets[0].assetScale
+    ))
+    const lineItems = inputMetadata?.lineItems
+    if (!sameCurrency && Array.isArray(lineItems) && lineItems.length > 0) {
+      throw new PaymentError(
+        'Line items require both split recipients to use the same currency. Omit line items for a mixed-currency split.',
+      )
     }
+    const metadataAmount = sameCurrency
+      ? amountFromMinorUnits(
+        allocations.reduce((sum, allocation) => sum + BigInt(allocation.value), 0n),
+        recipientWallets[0].assetScale,
+      )
+      : null
+    const metadata = normalizeMetadata(
+      inputMetadata,
+      metadataAmount,
+      sameCurrency ? recipientWallets[0].assetScale : null,
+    )
 
     const splitPayments = []
     for (let index = 0; index < recipientWallets.length; index += 1) {
       const wallet = recipientWallets[index]
-      const allocation = {
-        value: splitValues[index].toString(),
-        assetCode: wallet.assetCode,
-        assetScale: wallet.assetScale,
-      }
+      const allocation = allocations[index]
       const splitMetadata = {
         ...metadata,
         workflow: 'split-payout',
         split: {
           recipientIndex: index + 1,
           recipientCount: recipientWallets.length,
-          percentage: recipients[index].percentage,
         },
       }
       const { incoming, accessToken } = await createIncoming(client, wallet, allocation, splitMetadata)
@@ -720,7 +721,6 @@ export function createOpenPaymentsWorkflowService({
         incomingPaymentId: incoming.id,
         incomingToken: accessToken,
         incomingAmount: allocation,
-        percentage: recipients[index].percentage,
         metadata: splitMetadata,
       })
     }
@@ -731,6 +731,12 @@ export function createOpenPaymentsWorkflowService({
         { url: payer.resourceServer, accessToken: quoteToken },
         { method: 'ilp', walletAddress: payer.id, receiver: split.incomingPaymentId },
       )
+    }
+    if (splitPayments.some(({ quote }) => (
+      quote.debitAmount.assetCode !== payer.assetCode ||
+      quote.debitAmount.assetScale !== payer.assetScale
+    ))) {
+      throw new PaymentError('The payer wallet returned a quote in an unexpected currency.', 502)
     }
     const maximumDebit = sumAmounts(splitPayments.map(({ quote }) => quote.debitAmount))
 
@@ -769,7 +775,6 @@ export function createOpenPaymentsWorkflowService({
       kind: 'split',
       ownerEmail: owner,
       expiresAt: now() + pendingWorkflowTtlMs,
-      totalAmount: total,
       maxDebitAmount: maximumDebit,
       metadata,
       payerWalletAddress: payer.id,
@@ -793,11 +798,10 @@ export function createOpenPaymentsWorkflowService({
     return {
       state,
       redirectUrl: pendingGrant.interact.redirect,
-      totalAmount: total,
-      maximumDebitAmount: maximumDebit,
-      allocations: splitPayments.map(({ incomingAmount, percentage }) => ({
+      maxDebitAmount: maximumDebit,
+      allocations: splitPayments.map(({ incomingAmount, quote }) => ({
         incomingAmount,
-        percentage,
+        debitAmount: quote.debitAmount,
       })),
     }
   }
@@ -887,12 +891,11 @@ export function createOpenPaymentsWorkflowService({
           : pending.splits.some((split) => split.outgoingPaymentId)
             ? 'submitted'
             : 'awaiting_authorization',
-      totalAmount: pending.totalAmount,
       maxDebitAmount: pending.maxDebitAmount,
       recipients: pending.splits.map((split) => ({
         walletAddress: split.walletAddress,
-        percentage: split.percentage,
         incomingAmount: split.incomingAmount,
+        debitAmount: split.quote.debitAmount,
         receivedAmount: split.receivedAmount,
         outgoingPaymentId: split.outgoingPaymentId,
         status: split.status,

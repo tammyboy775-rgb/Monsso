@@ -116,14 +116,18 @@ binds each workflow to the Monsso account that started it.
   caps each workflow at 20 recorded charges. The grant is not receiver-scoped
   at the protocol level; the current workflow implementation directs charges
   only to the configured merchant. Review the wallet authorization prompt.
-- **Split payouts:** choose two different recipient test wallets and whole
-  percentage shares that total 100%. The payer authorizes one grant capped to
-  the combined quote amount, then Monsso submits one outgoing payment to each
-  recipient. Both recipients must use the same test currency and scale. The
-  dashboard reports each recipient's payment and receipt status separately;
-  Monsso does not custody or route funds. The grant is amount-capped but not
-  protocol-bound to those recipients; verify both recipient wallets and
-  amounts in the payer's authorization flow.
+- **Split payouts:** choose two different recipient test wallets and enter
+  the amount each should receive in that wallet's currency. Monsso quotes each
+  amount into the payer's currency, then shows the individual and combined
+  payer debit before authorization. Currency conversion depends on the test
+  wallets supporting the currency pair. The payer authorizes one grant capped
+  to the combined quote amount, then Monsso submits one outgoing payment to
+  each recipient. The dashboard reports each recipient's payment and receipt
+  status separately; Monsso does not custody or route funds. The grant is
+  amount-capped but not protocol-bound to those recipients; verify both
+  recipient wallets and amounts in the payer's authorization flow. For
+  mixed-currency splits, omit line items because their amounts cannot represent
+  multiple currencies.
 - **Payment metadata:** each payment carries a required description, optional
   invoice and order references, and up to 20 optional line items. A line item
   has a description, quantity, unit amount, and optional reference; when line

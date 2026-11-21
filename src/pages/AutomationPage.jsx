@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import BrandMark from '../components/Brand.jsx'
 import { useAuth } from '../auth/useAuth.js'
 import './AutomationPage.css'
@@ -149,6 +149,7 @@ function AutomationPage() {
   const [notice, setNotice] = useState('')
   const [recurringPlan, setRecurringPlan] = useState(null)
   const [splitResult, setSplitResult] = useState(null)
+  const [preparedSplit, setPreparedSplit] = useState(null)
   const [payerWalletAddress, setPayerWalletAddress] = useState('')
   const [maxPerInterval, setMaxPerInterval] = useState('15.00')
   const [initialChargeAmount, setInitialChargeAmount] = useState('5.00')
@@ -162,19 +163,14 @@ function AutomationPage() {
     ...initialMetadata,
     description: 'Variable recurring test charge',
   })
-  const [splitTotal, setSplitTotal] = useState('10.00')
   const [recipientOne, setRecipientOne] = useState('')
-  const [recipientOnePercent, setRecipientOnePercent] = useState('90')
+  const [recipientOneAmount, setRecipientOneAmount] = useState('')
   const [recipientTwo, setRecipientTwo] = useState('')
+  const [recipientTwoAmount, setRecipientTwoAmount] = useState('')
   const [splitMetadata, setSplitMetadata] = useState({
     ...initialMetadata,
     description: 'Monsso split test payment',
   })
-
-  const secondRecipientPercent = useMemo(() => {
-    const first = Number(recipientOnePercent)
-    return Number.isInteger(first) ? Math.max(0, 100 - first) : 0
-  }, [recipientOnePercent])
 
   const refreshRecurring = useCallback(async (id) => {
     const result = await requestJson(`/api/automation/recurring/${encodeURIComponent(id)}`)
@@ -340,7 +336,10 @@ function AutomationPage() {
         },
       )
       setRecurringPlan(result)
-      setNotice('Test installment submitted. The wallet settlement status is shown below.')
+      const latestPayment = result.payments.at(-1)
+      setNotice(latestPayment
+        ? `Test installment submitted. Current status: ${latestPayment.status}. See its settlement details in the installment history below.`
+        : 'The installment request succeeded, but no payment status was returned. Refresh the settlement status to check it.')
     } catch (cause) {
       setError(cause.message)
     } finally {
@@ -359,19 +358,25 @@ function AutomationPage() {
         method: 'POST',
         body: JSON.stringify({
           payerWalletAddress,
-          totalAmount: splitTotal,
           recipients: [
-            { walletAddress: recipientOne, percentage: Number(recipientOnePercent) },
-            { walletAddress: recipientTwo, percentage: secondRecipientPercent },
+            { walletAddress: recipientOne, amount: recipientOneAmount },
+            { walletAddress: recipientTwo, amount: recipientTwoAmount },
           ],
           metadata,
         }),
       })
-      window.location.assign(result.redirectUrl)
+      setPreparedSplit(result)
     } catch (cause) {
       setError(cause.message)
+    } finally {
       setBusy(false)
     }
+  }
+
+  function continueSplitAuthorization() {
+    if (!preparedSplit) return
+    setBusy(true)
+    window.location.assign(preparedSplit.redirectUrl)
   }
 
   if (loading) {
@@ -449,6 +454,9 @@ function AutomationPage() {
           </button>
         </div>
 
+        {notice && <p className="workflow-success" role="status">{notice}</p>}
+        {error && <p className="workflow-error" role="alert">{error}</p>}
+
         {activeTab === 'metadata' ? (
           <section className="workflow-panel" role="tabpanel" aria-labelledby="metadata-title">
             <div className="workflow-panel-heading">
@@ -492,13 +500,14 @@ function AutomationPage() {
                   <span className={`workflow-status workflow-status-${splitResult.status}`}>
                     {splitResult.status.replace('_', ' ')}
                   </span>
-                  <strong>Total {formatAmount(splitResult.totalAmount)}</strong>
+                  <strong>Maximum payer debit {formatAmount(splitResult.maxDebitAmount)}</strong>
                 </div>
                 {splitResult.recipients.map((recipient, index) => (
                   <article className="workflow-split-result" key={recipient.walletAddress}>
                     <div className="workflow-split-index">0{index + 1}</div>
                     <div>
-                      <strong>{recipient.percentage}% · {formatAmount(recipient.incomingAmount)}</strong>
+                      <strong>Receives {formatAmount(recipient.incomingAmount)}</strong>
+                      <span>Payer debit: {formatAmount(recipient.debitAmount)}</span>
                       <span>{recipient.metadata?.invoiceReference || recipient.metadata?.description}</span>
                       <small>{recipient.walletAddress}</small>
                       {recipient.receivedAmount && <small>Received {formatAmount(recipient.receivedAmount)}</small>}
@@ -717,7 +726,7 @@ function AutomationPage() {
                 <p>Split one checkout directly across two recipient wallets using one payer authorization.</p>
               </div>
             </div>
-            {!splitResult ? (
+            {!splitResult && !preparedSplit ? (
               <form className="workflow-form" onSubmit={beginSplit}>
                 <label htmlFor="split-payer">Payer test-wallet address</label>
                 <input
@@ -726,14 +735,6 @@ function AutomationPage() {
                   value={payerWalletAddress}
                   onChange={(event) => setPayerWalletAddress(event.target.value)}
                   placeholder="Copy the payer account’s exact Wallet Address URL"
-                  required
-                />
-                <label htmlFor="split-total">Total payment amount</label>
-                <input
-                  id="split-total"
-                  inputMode="decimal"
-                  value={splitTotal}
-                  onChange={(event) => setSplitTotal(event.target.value)}
                   required
                 />
                 <div className="workflow-recipient">
@@ -747,19 +748,14 @@ function AutomationPage() {
                     placeholder="Copy recipient 1’s exact Wallet Address URL"
                     required
                   />
-                  <div className="workflow-percent-row">
-                    <label htmlFor="recipient-one-percent">Allocation</label>
-                    <input
-                      id="recipient-one-percent"
-                      type="number"
-                      min="1"
-                      max="99"
-                      value={recipientOnePercent}
-                      onChange={(event) => setRecipientOnePercent(event.target.value)}
-                      required
-                    />
-                    <span>%</span>
-                  </div>
+                  <label htmlFor="recipient-one-amount">Amount to receive (recipient wallet currency)</label>
+                  <input
+                    id="recipient-one-amount"
+                    inputMode="decimal"
+                    value={recipientOneAmount}
+                    onChange={(event) => setRecipientOneAmount(event.target.value)}
+                    required
+                  />
                 </div>
                 <div className="workflow-recipient">
                   <strong>Recipient 2</strong>
@@ -772,7 +768,14 @@ function AutomationPage() {
                     placeholder="Copy recipient 2’s exact Wallet Address URL"
                     required
                   />
-                  <p className="workflow-help">Remaining allocation: {secondRecipientPercent}%</p>
+                  <label htmlFor="recipient-two-amount">Amount to receive (recipient wallet currency)</label>
+                  <input
+                    id="recipient-two-amount"
+                    inputMode="decimal"
+                    value={recipientTwoAmount}
+                    onChange={(event) => setRecipientTwoAmount(event.target.value)}
+                    required
+                  />
                 </div>
                 <MetadataFields
                   prefix="split"
@@ -780,26 +783,64 @@ function AutomationPage() {
                   onChange={setSplitMetadata}
                 />
                 <div className="workflow-notice">
-                  Both recipients must support the same test currency. Amounts are rounded down to the wallet’s
-                  smallest unit, with any remainder assigned to recipient 2. The grant is capped by the combined
-                  quoted amount but is not receiver-scoped; verify both recipient wallets and amounts in your wallet
-                  before approving. Funds are sent directly to recipients; Monsso does not hold them.
+                  Enter each receive amount in that recipient’s currency. Monsso will quote the payer debit for each
+                  amount and show the combined debit before authorization. Currency conversion depends on the test
+                  wallets supporting the currency pair. Omit line items for mixed-currency splits. The grant is capped
+                  by the combined quoted debit but is not receiver-scoped; verify both recipients and amounts in your
+                  wallet before approving.
                 </div>
                 <button className="workflow-submit" type="submit" disabled={busy}>
-                  {busy ? 'Preparing split quote…' : 'Review split payment'}
+                  {busy ? 'Preparing split quotes…' : 'Review split quotes'}
                 </button>
               </form>
+            ) : preparedSplit && !splitResult ? (
+              <div className="workflow-plan">
+                <div className="workflow-result-head">
+                  <strong>Combined payer debit: {formatAmount(preparedSplit.maxDebitAmount)}</strong>
+                </div>
+                {preparedSplit.allocations.map((allocation, index) => (
+                  <article className="workflow-split-result" key={index}>
+                    <div className="workflow-split-index">0{index + 1}</div>
+                    <div>
+                      <strong>Recipient receives {formatAmount(allocation.incomingAmount)}</strong>
+                      <span>Payer debit: {formatAmount(allocation.debitAmount)}</span>
+                      <small>{index === 0 ? recipientOne : recipientTwo}</small>
+                    </div>
+                  </article>
+                ))}
+                <p className="workflow-notice">
+                  Review the converted amounts above. Your wallet will ask you to authorize up to the combined payer
+                  debit shown here.
+                </p>
+                <button
+                  className="workflow-submit"
+                  type="button"
+                  onClick={continueSplitAuthorization}
+                  disabled={busy}
+                >
+                  {busy ? 'Opening wallet…' : 'Continue to wallet authorization'}
+                </button>
+                <button
+                  className="workflow-secondary"
+                  type="button"
+                  onClick={() => setPreparedSplit(null)}
+                  disabled={busy}
+                >
+                  Change split details
+                </button>
+              </div>
             ) : (
               <div className="workflow-plan">
                 <div className="workflow-result-head">
                   <span className={`workflow-status workflow-status-${splitResult.status}`}>{splitResult.status.replace('_', ' ')}</span>
-                  <strong>Total {formatAmount(splitResult.totalAmount)}</strong>
+                  <strong>Maximum payer debit {formatAmount(splitResult.maxDebitAmount)}</strong>
                 </div>
                 {splitResult.recipients.map((recipient, index) => (
                   <article className="workflow-split-result" key={recipient.walletAddress}>
                     <div className="workflow-split-index">0{index + 1}</div>
                     <div>
-                      <strong>{recipient.percentage}% · {formatAmount(recipient.incomingAmount)}</strong>
+                      <strong>Receives {formatAmount(recipient.incomingAmount)}</strong>
+                      <span>Payer debit: {formatAmount(recipient.debitAmount)}</span>
                       <span>{recipient.metadata?.invoiceReference || recipient.metadata?.description}</span>
                       <small>{recipient.walletAddress}</small>
                       {recipient.receivedAmount && <small>Received {formatAmount(recipient.receivedAmount)}</small>}
@@ -829,6 +870,7 @@ function AutomationPage() {
                   type="button"
                   onClick={() => {
                     setSplitResult(null)
+                    setPreparedSplit(null)
                     window.history.replaceState(null, '', '/workflows')
                   }}
                 >
@@ -839,8 +881,6 @@ function AutomationPage() {
           </section>
         )}
 
-        {notice && <p className="workflow-success" role="status">{notice}</p>}
-        {error && <p className="workflow-error" role="alert">{error}</p>}
         <p className="workflow-disclaimer">
           Sandbox prototype only. No real money is used. Do not enter real wallet details or sensitive personal data.
         </p>
