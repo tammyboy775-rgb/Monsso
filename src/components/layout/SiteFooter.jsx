@@ -4,7 +4,7 @@ import './SiteFooter.css'
 function SiteFooter() {
   return (
     <footer className="site-footer section-wrap">
-      <a className="brand" href="#top" aria-label="Monsso home">
+      <a className="brand" href="/" aria-label="Monsso home">
         <BrandMark />
         <span>monsso</span>
       </a>

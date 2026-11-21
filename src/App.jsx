@@ -5,6 +5,7 @@ import CheckoutPage from './pages/CheckoutPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import AutomationPage from './pages/AutomationPage.jsx'
+import ContactPage from './pages/ContactPage.jsx'
 
 function App() {
   if (window.location.pathname === '/checkout' || window.location.pathname === '/payment/finish') {
@@ -14,6 +15,7 @@ function App() {
   let page = <HomePage />
   if (window.location.pathname === '/login') page = <LoginPage />
   if (window.location.pathname === '/profile') page = <ProfilePage />
+  if (window.location.pathname === '/contact') page = <ContactPage />
   if (window.location.pathname === '/workflows' || window.location.pathname === '/automation/finish') {
     page = <AutomationPage />
   }

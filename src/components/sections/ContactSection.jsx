@@ -11,7 +11,7 @@ function ContactSection() {
           <div className="eyebrow cta-eyebrow"><span className="eyebrow-dot" /> READY WHEN YOU ARE</div>
           <h2>Make payments the easy part.</h2>
           <p>Let&apos;s make your money movement work a little harder.</p>
-          <a className="button button-light" href="mailto:hello@monsso.com">Let&apos;s talk <ArrowUpRight /></a>
+          <a className="button button-light" href="/contact">Let&apos;s talk <ArrowUpRight /></a>
         </div>
         <div className="cta-aside"><span>One platform.</span><span>Fewer workarounds.</span><span>More momentum.</span></div>
       </div>

@@ -22,7 +22,7 @@ function ConnectedSection() {
           <li><span><CheckIcon /></span> A clearer view of your money, end to end</li>
           <li><span><CheckIcon /></span> Built to fit your existing systems</li>
         </ul>
-        <a className="text-link" href="#contact">See how it fits together <ArrowRight /></a>
+        <a className="text-link" href="/contact">See how it fits together <ArrowRight /></a>
       </div>
     </section>
   )

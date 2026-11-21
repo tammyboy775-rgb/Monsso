@@ -1,0 +1,228 @@
+.contact-page {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.contact-main {
+  flex: 1;
+  display: grid;
+  align-items: center;
+  position: relative;
+  isolation: isolate;
+  padding-block: 70px;
+}
+
+.contact-main::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 82% 18%, #eee7fb 0, transparent 34%),
+    radial-gradient(ellipse at 12% 88%, #f5efff 0, transparent 32%);
+  content: '';
+}
+
+.contact-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, .82fr);
+  align-items: center;
+  gap: clamp(48px, 9vw, 130px);
+}
+
+.contact-intro {
+  animation: contact-enter .65s both;
+}
+
+.contact-intro h1 {
+  max-width: 600px;
+  margin: 22px 0 20px;
+  color: #292231;
+  font-size: clamp(54px, 7vw, 88px);
+  font-weight: 600;
+  letter-spacing: -.075em;
+  line-height: .99;
+}
+
+.contact-intro h1 span {
+  color: #7852d8;
+}
+
+.contact-intro > p {
+  max-width: 470px;
+  margin: 0;
+  color: #716a7c;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.contact-back-link {
+  display: inline-flex;
+  margin-top: 32px;
+  color: #7350ca;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: color .2s ease, transform .2s ease;
+}
+
+.contact-back-link:hover {
+  color: #5131a5;
+  transform: translateX(3px);
+}
+
+.contact-card {
+  padding: clamp(28px, 4vw, 45px);
+  border: 1px solid #eeebf3;
+  border-radius: 20px;
+  background: #ffffffed;
+  box-shadow: 0 28px 80px #39275312, 0 3px 12px #39275308;
+  animation: contact-enter .7s .12s both;
+}
+
+.contact-card-heading {
+  margin-bottom: 24px;
+}
+
+.contact-card-kicker {
+  color: #8c7aa9;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.5px;
+}
+
+.contact-card-heading h2 {
+  margin: 9px 0 0;
+  color: #30283b;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.8px;
+}
+
+.contact-method {
+  min-height: 84px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 0;
+  border-top: 1px solid #f0edf4;
+  color: inherit;
+  text-decoration: none;
+}
+
+.contact-method-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #7550d4;
+  background: #f2edfc;
+  transition: color .2s ease, background .2s ease, transform .2s ease;
+}
+
+.contact-method-icon svg {
+  width: 21px;
+  height: 21px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.contact-method-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 5px;
+}
+
+.contact-method-copy > span {
+  color: #8d8797;
+  font-size: 11px;
+}
+
+.contact-method-copy strong {
+  overflow-wrap: anywhere;
+  color: #342d3b;
+  font-size: clamp(13px, 1.5vw, 16px);
+  font-weight: 650;
+}
+
+.contact-method-arrow {
+  align-self: center;
+  color: #a197b1;
+  font-size: 18px;
+  transition: color .2s ease, transform .2s ease;
+}
+
+.contact-method:hover .contact-method-icon {
+  color: #fff;
+  background: #7852d8;
+  transform: translateY(-2px);
+}
+
+.contact-method:hover .contact-method-arrow {
+  color: #7852d8;
+  transform: translate(2px, -2px);
+}
+
+.contact-card-note {
+  margin-top: 10px;
+  padding-top: 18px;
+  border-top: 1px solid #f0edf4;
+  color: #8d8797;
+  font-size: 11px;
+}
+
+@keyframes contact-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 720px) {
+  .contact-main {
+    padding-block: 55px;
+  }
+
+  .contact-layout {
+    grid-template-columns: 1fr;
+    gap: 38px;
+  }
+
+  .contact-intro h1 {
+    max-width: 470px;
+    margin-block: 18px 14px;
+    font-size: clamp(52px, 13vw, 76px);
+  }
+
+  .contact-intro > p {
+    font-size: 14px;
+  }
+
+  .contact-back-link {
+    margin-top: 20px;
+  }
+
+  .contact-card {
+    padding: 27px 23px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 390px) {
+  .contact-layout {
+    gap: 30px;
+  }
+
+  .contact-method {
+    gap: 11px;
+  }
+
+  .contact-method-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
